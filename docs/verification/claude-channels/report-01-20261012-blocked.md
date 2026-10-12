@@ -26,7 +26,7 @@ CUを使わない部分は、同じMac上からの予備実測として次を確
 
 | 項目 | 値 | 確認方法 |
 | --- | --- | --- |
-| 対象Mac | Mac mini（ユーザー名 m1_mini）、macOS 26.5.1（25F80）、arm64 | `sw_vers`、`uname -m` |
+| 対象Mac | Mac mini、macOS 26.5.1（25F80）、arm64 | `sw_vers`、`uname -m` |
 | 操作用端末 | なし。同じMac上の curl と Bun 製WebSocketクライアントで代用 | ― |
 | 接続経路 | 127.0.0.1 のみ。LAN公開（0.0.0.0:8798）はUIとAPIの応答だけ確認 | curl |
 | Claude Code | v2.1.296、claude.ai認証、Max プラン | `claude --version`、`claude auth status` |

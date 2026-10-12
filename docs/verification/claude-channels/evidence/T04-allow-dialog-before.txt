@@ -4,9 +4,9 @@
 ▎ Channels (experimental) messages from server:webchat-test inject directly in this session · restart without --dangerously-load-development-channels to stop
 ← webchat-test: T03です。今回の合言葉は「あおぞら-r1012a-7Q」です。覚えてお…
   ⎿  PreToolUse:ToolSearch hook error
-  ⎿  Failed with non-blocking status code: /bin/sh: /Users/m1_mini/Git/claudecode-monitor/hooks/claude-code-hook.sh: No such file or directory
+  ⎿  Failed with non-blocking status code: /bin/sh: /Users/<user>/Git/claudecode-monitor/hooks/claude-code-hook.sh: No such file or directory
   ⎿  PostToolUse:ToolSearch hook error
-  ⎿  Failed with non-blocking status code: /bin/sh: /Users/m1_mini/Git/claudecode-monitor/hooks/claude-code-hook.sh: No such file or directory
+  ⎿  Failed with non-blocking status code: /bin/sh: /Users/<user>/Git/claudecode-monitor/hooks/claude-code-hook.sh: No such file or directory
 ⏺ Calling webchat-test… (ctrl+o to expand)
 ────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────
  Tool use
@@ -21,6 +21,6 @@
  │ Send a message back to the WebChat conversation
  Do you want to proceed?
  ❯ 1. Yes
-   2. Yes, and don't ask again for webchat-test — Reply commands in /Users/m1_mini/Desktop/逃し/concierge_test
+   2. Yes, and don't ask again for webchat-test — Reply commands in /Users/<user>/Desktop/逃し/concierge_test
    3. No
  Esc to cancel · Tab to amend

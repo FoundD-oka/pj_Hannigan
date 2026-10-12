@@ -3,11 +3,11 @@
  Tip: auto mode handles these prompts for you — choose "switch to auto mode" below
  Create empty marker file in the specified scratchpad path
 ╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌
- │ touch /private/tmp/claude-501/-Users-m1-mini-Desktop----concierge-test/4d6f1b83-887e-496d-923e-4e0b9bcf1e82/scratchpad/t04-deny-marker
+ │ touch /private/tmp/claude-501/-Users-<user>-Desktop----concierge-test/4d6f1b83-887e-496d-923e-4e0b9bcf1e82/scratchpad/t04-deny-marker
 ╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌
  Do you want to proceed?
  ❯ 1. Yes
-   2. Yes, and always allow access to /private/tmp/claude-501/-Users-m1-mini-Desktop----concierge-test/4d6f1b83-887e-496d-923e-4e0b9bcf1e82/scratchpad from this
+   2. Yes, and always allow access to /private/tmp/claude-501/-Users-<user>-Desktop----concierge-test/4d6f1b83-887e-496d-923e-4e0b9bcf1e82/scratchpad from this
       project
    3. Yes, and switch to auto mode · auto mode handles these prompts for you
    4. No

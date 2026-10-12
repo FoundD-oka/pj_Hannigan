@@ -24,7 +24,7 @@ run_id：`r1012b`
 
 | 項目 | 値 | 確認方法 |
 | --- | --- | --- |
-| 対象Mac | Mac mini（ユーザー名 m1_mini）、macOS 26.5.1（25F80）、arm64 | `sw_vers`、`uname -m` |
+| 対象Mac | Mac mini、macOS 26.5.1（25F80）、arm64 | `sw_vers`、`uname -m` |
 | 操作用端末 | なし。同じMac上の curl（SSE受信・送信・承認回答）と Bun 製WebSocketクライアント（fakechat用）で代用 | ― |
 | 接続経路 | 127.0.0.1 のみ。別LAN・別ネットワークは未実施 | ― |
 | Claude Code | v2.1.296、claude.ai認証、Max プラン。モデル Fable 5.1（effort high） | `claude --version`、起動バナー |
@@ -148,7 +148,7 @@ Claude Code側でCUの承認がpermission relayに流れるようになれば、
 ```bash
 # 前提: macOS, Claude Code v2.1.296 以降, claude.ai 認証 (Pro/Max), Bun, tmux
 # Terminal.app に「アクセシビリティ」「画面収録」を付与し、付与後に Claude Code を起動し直す
-cd /Volumes/SanD/Mac_m1_mini_archive/Git_full_no_xattrs/pj_Hannigan
+cd <repo>
 git switch test/claude-channels-cu
 (cd prototype/webchat-test && bun install)
 mkdir -p ~/.claude/channels/webchat-test

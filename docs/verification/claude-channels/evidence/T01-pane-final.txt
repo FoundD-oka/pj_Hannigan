@@ -29,6 +29,6 @@
 ────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────
 ❯
 ────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────
-  Fable 5.1 | /Users/m1_mini/Desktop/逃し/concierge_test | git:test/claude-channels-cu | ctx:94%remaining | 5h:92%(~22:10) | 7d:96%(~05:00) | session:TextEdi…
+  Fable 5.1 | /Users/<user>/Desktop/逃し/concierge_test | git:test/claude-channels-cu | ctx:94%remaining | 5h:92%(~22:10) | 7d:96%(~05:00) | session:TextEdi…
   ⏸ manual mode on · ← for agents
                                                                                                                                                            /rc

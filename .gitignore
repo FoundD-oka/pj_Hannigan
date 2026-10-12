@@ -1,5 +1,21 @@
+# dependencies / build
 node_modules/
+dist/
+coverage/
+# local env and secrets (never commit)
 .env
 .env.*
+*.pem
+*.key
+*.p12
+token
+*.token
+secrets/
+# Claude Code local settings
 .claude/settings.local.json
+# runtime state
+*.pid
+.cache/
+tmp/
+# OS
 .DS_Store

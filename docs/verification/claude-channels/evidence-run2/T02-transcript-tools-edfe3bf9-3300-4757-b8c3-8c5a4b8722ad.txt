@@ -9,7 +9,7 @@
 2026-10-12T11:03:29.407Z ASSISTANT_TEXT まず computer-use のスキルとツールを読み込むね！
 2026-10-12T11:03:29.411Z TOOL_USE Skill {"skill": "anthropic-skills:computer-use"}
 2026-10-12T11:03:29.450Z TOOL_RESULT Launching skill: anthropic-skills:computer-use
-2026-10-12T11:03:29.442Z USER_TEXT Base directory for this skill: /Users/m1_mini/.claude/skills/synced/55f8dd6b-2661-4d53-ac1a-44f44a977540_b06a04eb-637c-4911-81d5-40bf3f689acc/computer-use  # Computer use (desktop control)  Computer use lets Claude take screenshots of the person's desktop and control it with mouse clicks, keyboard i
+2026-10-12T11:03:29.442Z USER_TEXT Base directory for this skill: /Users/<user>/.claude/skills/synced/55f8dd6b-2661-4d53-ac1a-44f44a977540_b06a04eb-637c-4911-81d5-40bf3f689acc/computer-use  # Computer use (desktop control)  Computer use lets Claude take screenshots of the person's desktop and control it with mouse clicks, keyboard i
 2026-10-12T11:03:31.266Z TOOL_USE ToolSearch {"query": "computer-use", "max_results": 40}
 2026-10-12T11:03:31.299Z TOOL_RESULT [{"type": "tool_reference", "tool_name": "mcp__computer-use__computer_batch"}, {"type": "tool_reference", "tool_name": "mcp__computer-use__cursor_position"}, {"type": "tool_reference", "tool_name": "mcp__computer-use__double_click"}, {"type": "tool_reference", "tool_name": "mcp__computer-use__hold_key"}, {"type": "tool_reference", "tool_name": "mcp__computer-use__key"}, {"type": "tool_reference", 
 2026-10-12T11:03:33.898Z TOOL_USE mcp__computer-use__request_access {"apps": ["TextEdit"], "reason": "TextEditの新しい未保存書類に検証用の識別文字列を入力し、画面を確認します。"}

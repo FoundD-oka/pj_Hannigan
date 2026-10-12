@@ -7,6 +7,6 @@
  │ Send a message back to the WebChat conversation
  Do you want to proceed?
  ❯ 1. Yes
-   2. Yes, and don't ask again for webchat-test — Reply commands in /Users/m1_mini/Desktop/逃し/concierge_test
+   2. Yes, and don't ask again for webchat-test — Reply commands in /Users/<user>/Desktop/逃し/concierge_test
    3. No
  Esc to cancel · Tab to amend
