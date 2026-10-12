@@ -1,0 +1,98 @@
+<!doctype html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>WebChat Test</title>
+<style>
+  :root { --bg:#f6f6f4; --fg:#1d1d1b; --muted:#6b6b66; --card:#fff; --line:#ddd; --me:#dfeaff; --ai:#fff; --warn:#fff4d6; --ok:#1b7f3b; --ng:#b3261e; }
+  @media (prefers-color-scheme: dark) { :root { --bg:#151514; --fg:#ecece8; --muted:#9a9a94; --card:#20201e; --line:#333; --me:#1f2f4a; --ai:#20201e; --warn:#3a3218; } }
+  * { box-sizing: border-box; }
+  body { margin:0; background:var(--bg); color:var(--fg); font:15px/1.5 -apple-system, system-ui, sans-serif; }
+  header { position:sticky; top:0; background:var(--bg); border-bottom:1px solid var(--line); padding:8px 16px; display:flex; gap:8px; align-items:center; flex-wrap:wrap; }
+  header b { margin-right:auto; }
+  #conn { font-size:12px; color:var(--muted); }
+  main { padding:12px 16px 140px; max-width:760px; margin:0 auto; }
+  .ev { margin:8px 0; padding:8px 10px; border-radius:8px; background:var(--card); border:1px solid var(--line); white-space:pre-wrap; word-break:break-word; }
+  .user { background:var(--me); margin-left:15%; }
+  .assistant_reply { background:var(--ai); margin-right:15%; }
+  .permission_request { background:var(--warn); }
+  .sys { font-size:12px; color:var(--muted); background:transparent; border:none; padding:2px 0; }
+  .meta { font-size:11px; color:var(--muted); }
+  .btns { display:flex; gap:8px; margin-top:6px; }
+  button { font:inherit; padding:6px 12px; border-radius:6px; border:1px solid var(--line); background:var(--card); color:var(--fg); }
+  .allow { border-color:var(--ok); color:var(--ok); } .deny { border-color:var(--ng); color:var(--ng); }
+  footer { position:fixed; bottom:0; left:0; right:0; background:var(--bg); border-top:1px solid var(--line); padding:8px 16px; }
+  footer form { display:flex; gap:8px; max-width:760px; margin:0 auto; }
+  textarea { flex:1; font:inherit; min-height:44px; padding:6px; border-radius:6px; border:1px solid var(--line); background:var(--card); color:var(--fg); }
+  pre { margin:4px 0 0; font-size:12px; white-space:pre-wrap; }
+</style>
+</head>
+<body>
+<header>
+  <b>WebChat Test</b>
+  <span id="conn">未接続</span>
+  <label class="meta">会話 <input id="conv" size="14"></label>
+  <button id="disconnect" type="button">切断</button>
+  <button id="stop" type="button" title="tmuxへEscを送る補助経路。Channelsの機能ではない">Esc送信(補助)</button>
+</header>
+<main id="log"></main>
+<footer>
+  <form id="f"><textarea id="t" placeholder="指示を入力"></textarea><button>送信</button></form>
+</footer>
+<script>
+const h = new URLSearchParams(location.hash.slice(1));
+let token = h.get('token') || (()=>{ try { return localStorage.getItem('wct_token') } catch { return null } })();
+if (h.get('token')) { try { localStorage.setItem('wct_token', token) } catch {} history.replaceState(null, '', location.pathname); }
+const clientId = 'c' + Math.random().toString(36).slice(2, 8);
+const conv = document.getElementById('conv');
+conv.value = (()=>{ try { return localStorage.getItem('wct_conv') } catch { return null } })() || ('conv-' + new Date().toISOString().slice(0,10));
+conv.onchange = () => { try { localStorage.setItem('wct_conv', conv.value) } catch {} };
+let lastSeq = 0, es = null;
+const log = document.getElementById('log'), connEl = document.getElementById('conn');
+const answered = new Set();
+const SYS = ['written_to_channel','browser_connected','browser_disconnected','channel_started','http_listening','duplicate_send_ignored','verdict_sent','interrupt_key_sent','interrupt_unavailable','unknown_notification','auth_rejected'];
+function t(ts){ return new Date(ts).toLocaleTimeString('ja-JP',{hour12:false}) }
+function render(e) {
+  if (e.seq <= lastSeq) return; lastSeq = e.seq;
+  const d = document.createElement('div');
+  if (e.kind === 'user_message') { d.className='ev user'; d.textContent = e.text; d.append(meta(`${t(e.ts)} 受付 seq=${e.seq} msg=${e.msg_id} conv=${e.conv_id}`)); }
+  else if (e.kind === 'assistant_reply') { d.className='ev assistant_reply'; d.textContent = e.text; d.append(meta(`${t(e.ts)} Claude返信 seq=${e.seq} 返信先=${e.in_reply_to ?? '-'} conv=${e.conv_id}`)); }
+  else if (e.kind === 'permission_request') {
+    d.className='ev permission_request'; d.id = 'req-' + e.request_id;
+    d.textContent = `承認要求 ${e.tool_name}\n${e.description}`;
+    const p = document.createElement('pre'); p.textContent = e.input_preview; d.append(p);
+    d.append(meta(`${t(e.ts)} request_id=${e.request_id} seq=${e.seq}`));
+    const b = document.createElement('div'); b.className='btns';
+    for (const [lab, beh, cls] of [['許可','allow','allow'],['拒否','deny','deny']]) {
+      const x = document.createElement('button'); x.textContent = lab; x.className = cls;
+      x.onclick = () => verdict(e.request_id, beh, b); b.append(x);
+    }
+    if (answered.has(e.request_id)) b.textContent = '回答済み';
+    d.append(b);
+  }
+  else { if (e.kind === 'verdict_sent') { answered.add(e.request_id); const r = document.querySelector(`#req-${e.request_id} .btns`); if (r) r.textContent = `回答済み: ${e.behavior}`; }
+    d.className='ev sys'; d.textContent = `${t(e.ts)} [${e.kind}] ` + JSON.stringify(Object.fromEntries(Object.entries(e).filter(([k])=>!['seq','ts','kind','ua'].includes(k)))); }
+  log.append(d); d.scrollIntoView({block:'end'});
+}
+function meta(s){ const m=document.createElement('div'); m.className='meta'; m.textContent=s; return m; }
+function api(path, body) {
+  return fetch(path, { method:'POST', headers:{'content-type':'application/json', authorization:'Bearer '+token, 'x-client-id':clientId}, body: JSON.stringify(body) }).then(r=>r.json());
+}
+function verdict(id, behavior, box) { box.textContent = '送信中'; api('/api/verdict', {request_id:id, behavior}).then(r => box.textContent = `送信: ${behavior} (${r.status}${r.known_open===false?' 未知のID':''})`); }
+function connect() {
+  if (!token) { connEl.textContent = 'トークン未設定 (#token=...)'; return; }
+  es = new EventSource(`/api/events?since=${lastSeq}&token=${encodeURIComponent(token)}&client=${clientId}`);
+  es.onopen = () => connEl.textContent = `接続中 ${clientId}`;
+  es.onmessage = m => render(JSON.parse(m.data));
+  es.onerror = () => connEl.textContent = '再接続待ち';
+}
+document.getElementById('disconnect').onclick = () => { if (es) { es.close(); es = null; connEl.textContent='切断(手動)'; document.getElementById('disconnect').textContent='再接続'; } else { connect(); document.getElementById('disconnect').textContent='切断'; } };
+document.getElementById('stop').onclick = () => api('/api/interrupt', {}).then(r => alert('Esc送信: ' + r.status + '\n停止の確認は画面とログで行う'));
+document.getElementById('f').onsubmit = ev => { ev.preventDefault(); const tx = document.getElementById('t'); if (!tx.value.trim()) return;
+  const msg_id = 'm' + Date.now().toString(36) + Math.random().toString(36).slice(2,5);
+  api('/api/send', {conv_id: conv.value, msg_id, text: tx.value}).then(r => { if (r.status) tx.value=''; else alert(JSON.stringify(r)); }); };
+connect();
+</script>
+</body>
+</html>

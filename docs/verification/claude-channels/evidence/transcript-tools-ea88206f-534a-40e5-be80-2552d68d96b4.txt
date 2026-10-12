@@ -1,0 +1,8 @@
+2026-10-12T09:18:59.011Z USER_TEXT <channel source="plugin:fakechat:fakechat" chat_id="web" message_id="fc-r1012a-1" user="web" ts="2026-10-12T09:18:58.990Z"> T02対照試験です。識別文字列 FC-r1012a-T02 をそのままreplyで返してください。 </channel>
+2026-10-12T09:19:01.717Z TOOL_USE ToolSearch {"query": "+fakechat reply", "max_results": 5}
+2026-10-12T09:19:01.744Z TOOL_RESULT [{"type": "tool_reference", "tool_name": "mcp__plugin_fakechat_fakechat__reply"}, {"type": "tool_reference", "tool_name": "mcp__plugin_fakechat_fakechat__edit_message"}]
+2026-10-12T09:19:03.863Z TOOL_USE mcp__plugin_fakechat_fakechat__reply {"text": "FC-r1012a-T02", "reply_to": "fc-r1012a-1"}
+2026-10-12T09:19:05.108Z TOOL_RESULT [{"type": "text", "text": "sent (m1791796745087-1)"}]
+2026-10-12T09:19:16.206Z USER_TEXT <local-command-caveat>The command below was run directly in Claude Code, not sent to you as a request, and its output goes straight to the user. It's recorded here as context for later messages.</local-command-caveat>
+2026-10-12T09:19:16.205Z USER_TEXT <command-name>/exit</command-name>             <command-message>exit</command-message>             <command-args></command-args>
+2026-10-12T09:19:16.205Z USER_TEXT <local-command-stdout>Goodbye!</local-command-stdout>
