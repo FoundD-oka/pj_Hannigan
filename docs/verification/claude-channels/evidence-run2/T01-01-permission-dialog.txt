@@ -1,0 +1,14 @@
+  ⎿  Failed with non-blocking status code: /bin/sh: /Users/m1_mini/Git/claudecode-monitor/hooks/claude-code-hook.sh: No such file or directory
+  ⎿  PreToolUse:ToolSearch hook error
+  ⎿  Failed with non-blocking status code: /bin/sh: /Users/m1_mini/Git/claudecode-monitor/hooks/claude-code-hook.sh: No such file or directory
+  ⎿  PostToolUse:ToolSearch hook error
+  ⎿  Failed with non-blocking status code: /bin/sh: /Users/m1_mini/Git/claudecode-monitor/hooks/claude-code-hook.sh: No such file or directory
+⏺ Calling computer-use… (ctrl+o to expand)
+────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────
+  Computer Use needs macOS permissions
+   Accessibility: ✘ not granted
+   Screen Recording: ✔ granted
+   Grant the missing permissions in System Settings, then select "Try again". macOS may require you to restart Claude Code after granting Screen Recording.
+   ❯ Open System Settings → Accessibility
+     Try again
+  Enter to confirm · Esc to cancel

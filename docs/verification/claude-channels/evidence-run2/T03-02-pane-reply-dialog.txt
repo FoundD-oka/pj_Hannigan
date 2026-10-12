@@ -1,0 +1,12 @@
+ chat_id: "conv-r1012b"
+ in_reply_to: "m-r1012b-1"
+ text:
+   │ T03、受け取ったよ！合言葉「ゆうやけ-r1012b-3K」、ちゃんと覚えたから安心して。次の指示いつでもどうぞ！
+╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌
+ About the webchat-test — Reply Tool:
+ │ Send a message back to the WebChat conversation
+ Do you want to proceed?
+ ❯ 1. Yes
+   2. Yes, and don't ask again for webchat-test — Reply commands in /Users/m1_mini/Desktop/逃し/concierge_test
+   3. No
+ Esc to cancel · Tab to amend

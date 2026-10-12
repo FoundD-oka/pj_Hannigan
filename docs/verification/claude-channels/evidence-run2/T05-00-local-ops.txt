@@ -1,0 +1,2 @@
+dev dialog shown; local Enter at 20:07:16
+CU app approval NOT relayed to channel. Local Down+Enter(Allow for this session) at 20:08:49 — manual terminal intervention

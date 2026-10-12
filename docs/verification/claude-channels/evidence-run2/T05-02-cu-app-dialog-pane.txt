@@ -1,0 +1,8 @@
+────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────
+  Computer Use wants to control these apps
+   │ テキストエディットの新しい未保存書類に検証用の文字列「CHCU-r1012b-A」を入力し、画面を確認します。
+     ◉ テキストエディット
+   4 other apps will be hidden while Claude works.
+   ❯ Deny, and tell Claude what to do differently (esc)
+     Allow for this session (1 app)
+  Enter to confirm · Esc to cancel

@@ -1,0 +1,6 @@
+processing started (computer-use call seen in pane) at 20:10:27
+WebChat SSE client closed at 20:10:29
+last seq seen by client before disconnect: 99
+reply permission_request arrived while disconnected at 20:10:42: {"seq": 101, "ts": "2026-10-12T11:10:42.515Z", "kind": "permission_request", "request_id": "otxut", "tool_name": "mcp__webchat-test__reply", "description": "Send a message back to the WebChat conversa
+== reconnect with since=99 at 20:10:50 ==
+{"status":"verdict_written","known_open":true} [allow otxut at 20:10:53]

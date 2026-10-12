@@ -1,157 +1,153 @@
-# Claude Code Channels × 純正Computer Use 実機検証レポート（第1回）
+# Claude Code Channels × 純正Computer Use 実機検証レポート（第2回）
 
-実施日：2026年10月12日（JST）  
-実施者：Claude Code（自律実行セッション。人の操作者・別端末は不在）  
-ブランチ：`test/claude-channels-cu`（基準commit `ffa1194`）  
+実施日：2026年10月12日 19:52〜20:25（JST）  
+実施者：Claude Code（自律実行セッション `47702cdb-…`、Terminal.app上）。人の操作者は対象Macの前にいて、OS権限の付与だけを行った  
+run_id：`r1012b`  
+ブランチ：`test/claude-channels-cu`（基準commit `85ea0e6`）  
 検証コード：[`verification/webchat-test/`](../../../verification/webchat-test/)  
-証拠：[`evidence/`](evidence/)
+証拠：[`evidence-run2/`](evidence-run2/)（第1回の証拠は [`evidence/`](evidence/)、第1回レポートは [`report-01-20261012-blocked.md`](report-01-20261012-blocked.md)）
 
 ## 0. 結論
 
-総合判断は **判定保留** です。
+総合判断は **補助経路を条件に採用可能** です。適用範囲は「対象Mac上のループバック接続で、検証者が別端末の代わりにAPIを叩いた範囲」に限ります。別端末・別ネットワークからの利用は未実施のため判定保留です。
 
-対象Macで、純正Computer Use（以下CU）に必要なmacOSの「アクセシビリティ」と「画面収録」の権限が付与されていません。そのためCUを使う試験（T01、T02後半、T05〜T09、T10のCU部分）はすべて止まりました。権限の付与はシステム設定で人が行う操作で、今回の自律実行では行えませんでした。
+実測で確定したことは次のとおりです。
 
-不足している一点は、対象MacでのCU用OS権限です。次の確認方法は「6. 残りの試験の進め方」の手順1〜3で、権限付与後にT01を再実行します。
+- 純正Computer Use（以下CU）はChannelsからの指示で動く。TextEditへの入力、同じ会話での再確認つき追記、切断中の結果回収、CLI再開後の会話継続まで、すべて同じClaudeセッションで成立した。
+- CUのアプリ承認（「Computer Use wants to control these apps」）はChannelsのpermission relayに**届かない**。端末のダイアログにしか出ないため、WebChatだけでは許可も拒否もできない。通常ツール（Bash、返信ツール）の承認は届く。
+- 実行中のGUI操作をChannelsのメッセージで止めることはできない。「停止してください」は処理待ちになり、完了後に通常メッセージとして処理された。端末へEscを送る補助経路なら実行中のバッチを中断でき、その後も同じ会話を続けられた。
+- 起動時の開発用チャネル警告と、再開後のアプリ再承認も端末での操作が必要だった。
 
-CUを使わない部分は、同じMac上からの予備実測として次を確認しました。別端末・人による操作ではないため、正式なPASSには数えていません。
-
-- 独自Channelで、WebChatの発言が同じClaudeセッションに届き、前の発言を踏まえた返答が同じ会話に戻った（T03相当）。
-- 通常ツール（Bash、返信ツール）の承認要求がChannelに届き、WebChat API経由の許可・拒否がそのまま実行可否に反映された（T04相当）。
-- ブラウザ再接続時に、切断中のイベントを取りこぼさず再取得できた。同じ送信IDの再送は二重に届かなかった（T07の仕組み部分）。
-- 前景処理の中断は、Channelsのメッセージでは行えなかった。tmuxへEscを送る補助経路で中断でき、その後も同じ会話を続けられた（T09の予備）。
-- `--resume`で同じ会話IDを再開し、Channelを再接続して、前の合言葉を答えられた（T10のCU以外）。
+したがって、独自WebChatを主な窓口にするには、Channelsに加えて「端末の画面を読み、キーを送る」補助経路が、CU承認・停止・起動確認の3場面で必要です。
 
 ## 1. 環境
 
 | 項目 | 値 | 確認方法 |
 | --- | --- | --- |
 | 対象Mac | Mac mini（ユーザー名 m1_mini）、macOS 26.5.1（25F80）、arm64 | `sw_vers`、`uname -m` |
-| 操作用端末 | なし。同じMac上の curl と Bun 製WebSocketクライアントで代用 | ― |
-| 接続経路 | 127.0.0.1 のみ。LAN公開（0.0.0.0:8798）はUIとAPIの応答だけ確認 | curl |
-| Claude Code | v2.1.296、claude.ai認証、Max プラン | `claude --version`、`claude auth status` |
-| 起動方法 | tmux 3.8 の中で対話型CLIを起動（親環境の変数は `env -i` で除去） | [`start-session.sh`](../../../verification/webchat-test/start-session.sh) |
-| 作業ディレクトリ | `~/Desktop/逃し/concierge_test` | ― |
-| モデル | Fable 5.1（effort high、ユーザー設定の既定値） | 起動バナー |
-| permission mode | manual（`--permission-mode manual`） | ステータス行 `⏸ manual mode on` |
-| 組み込みCU | `/mcp` で `computer-use` を有効化。24ツール。`request_access`、`left_click`、`computer_batch` 等 | `/mcp` 画面、ToolSearch結果 |
-| 独自Channel | `webchat-test` 0.0.1、`@modelcontextprotocol/sdk` 1.32.1、zod 4.6.6、Bun 1.3.9 | `.mcp.json`、`package.json` |
-| fakechat | `fakechat@claude-plugins-official` 0.0.1。`server.ts` の blob SHA は `f258a83ebbb0ddfbabfc674389308ab5c97a75c9` で依頼書と一致 | `git hash-object` |
-| 利用枠 | 試験開始時のステータス行で 5時間枠 92%、7日枠 96% 使用済み | ステータス行 |
+| 操作用端末 | なし。同じMac上の curl（SSE受信・送信・承認回答）と Bun 製WebSocketクライアント（fakechat用）で代用 | ― |
+| 接続経路 | 127.0.0.1 のみ。別LAN・別ネットワークは未実施 | ― |
+| Claude Code | v2.1.296、claude.ai認証、Max プラン。モデル Fable 5.1（effort high） | `claude --version`、起動バナー |
+| 被験セッションの起動 | Terminal.app（Apple_Terminal 470.2）→ tmux 3.8 の中で対話型CLI。`--permission-mode manual` | [`start-session.sh`](../../../verification/webchat-test/start-session.sh) |
+| 検証者セッション | 同じTerminal.appで `claude --dangerously-skip-permissions`。被験セッションとは別プロセスで、CUは使っていない | `ps` |
+| 組み込みCU | `/mcp` で有効化済み（第1回で設定）。`request_access`、`open_application`、`computer_batch`、`zoom` 等 | transcript |
+| 独自Channel | `webchat-test` 0.0.1（第1回と同じコード。起動スクリプトのbash 3.2対応のみ修正） | `.mcp.json`、`git diff` |
+| fakechat | `fakechat@claude-plugins-official` 0.0.1。`server.ts` の blob SHA `f258a83ebbb0ddfbabfc674389308ab5c97a75c9`（依頼書と一致） | `git hash-object` |
+| 利用枠 | 開始時 5時間枠 63%、7日枠 91% 使用済み。終了時 57%／90% | ステータス行 |
 
-公式資料は2026年10月12日に次を確認しました。依頼書の前提と食い違う記述はありませんでした。
+公式資料は2026年10月12日に [Computer use（CLI）](https://code.claude.com/docs/en/computer-use) を再確認しました。「権限はターミナルアプリに付与」「アプリ承認はセッション単位」「停止は Esc または Ctrl+C」「ロックはセッション終了まで」の記述は実測と一致しました。「ターミナルは隠されない」という記述に対し、CUのスクリーンショット結果は「ターミナル」も隠した旨を返しており、ここは食い違いとして記録します。
 
-- [Computer use（CLI）](https://code.claude.com/docs/en/computer-use)：Pro/Max、claude.ai認証、対話セッション必須。アプリ承認はセッション単位。停止は Esc または Ctrl+C。ロックはセッション終了まで保持。
-- [Channels](https://code.claude.com/docs/en/channels)：research preview。fakechat は localhost:8787。
-- [Channels reference](https://code.claude.com/docs/en/channels-reference)：permission relay の対象は「Bash、Write、Edit などのツール承認」。プロジェクト信頼とMCPサーバー同意のダイアログは中継されない。CUのアプリ承認が中継されるかの記述はない。
+### 1.1 OS権限の付与と再起動の要否
+
+第1回で未付与だったアクセシビリティと画面収録は、今回どちらもTerminal.appに付与されました。画面収録は検証開始時点で付与済み、アクセシビリティは19:57頃に人が付与しました。
+
+付与前に起動していたClaude Codeプロセスは、付与後に「Try again」を選んでも、新しい依頼を送っても `Accessibility: ✘ not granted` のままでした（`T01-01-permission-dialog.txt`）。同じTerminal.appから新しいtmuxサーバーとClaude Codeを起動し直すと付与済みと判定されました。公式資料は画面収録について再起動を案内していますが、アクセシビリティでも再起動が必要でした。tmux経由でもTerminal.appの権限は引き継がれました。
 
 ## 2. ケース別結果
 
-時刻はJST。ログ内の時刻はUTC（JST−9時間）です。
+時刻はJST。ログ内の時刻はUTC（JST−9時間）です。「現地操作」は検証者がtmux経由で対象Macの端末に入力した操作で、人の操作ではありません。
 
 | ケース | 判定 | 実測結果 | 証拠 | 現地操作・補助経路 |
 | --- | --- | --- | --- | --- |
-| T01 | BLOCKED | 18:10:57 に `mcp__computer-use__request_access`（TextEdit）が呼ばれた。端末に「Computer Use needs macOS permissions」と出て、アクセシビリティと画面収録が未付与だった。ツール結果は「権限が未付与なので再試行しない」。GUI操作は一度も起きていない。子セッションはAppleScript等へ切り替えずに止まった | `T01-pane-permission-dialog.txt`、`transcript-tools-798c4618-….txt` | 権限ダイアログを検証者がEscで閉じた |
-| T02 | BLOCKED（往復のみローカル成立） | fakechat に WebSocket で `FC-r1012a-T02` を送り、6秒後に同じ文字列が返った。返信ツールの承認は端末で押した（fakechat に中継機能はない）。CU依頼の手順2はT01と同じ原因で未実施 | `T02-fakechat-ws.log`、`T02-pane-reply-dialog.txt` | 返信承認を端末でEnter |
-| T03 | 未実施（遠隔）／ローカル予備は成立 | 合言葉を送り、次の発言で「先ほどの合言葉」を求めた。同じセッション `6d636d6b-…` から `in_reply_to` 付きで同じ会話 `conv-r1012a` に正しい合言葉が戻った | `webchat-events.jsonl` seq 5〜15 | 開発用チャネル警告を端末で承認 |
-| T04 | 未実施（遠隔）／ローカル予備は成立 | 許可：返信ツールの要求 `zxbwd` に allow を送ると端末ダイアログが閉じて実行された。拒否：Bash要求 `sqavg` に deny を送ると「Denied via channel webchat-test」となり、目印ファイルは作られなかった。存在しないID `qqqqq` と未認証の回答は無視され、ダイアログは開いたままだった | `webchat-events.jsonl` seq 8〜24、`T04-*.txt` | 回答者は人ではなく検証者のcurl |
-| T05 実行 | BLOCKED | T01のOS権限不足のため未実施 | ― | ― |
-| T05 CU遠隔許可 | BLOCKED | 同上。CUのアプリ承認がChannelに届くかは未確認 | ― | ― |
-| T06 | BLOCKED | 同上 | ― | ― |
-| T07 | BLOCKED（仕組みのみ確認） | CUは未実施。WebChat側は `since=<最後のseq>` で再接続すると切断中のイベントを再生できた。同じ `msg_id` の再送は `duplicate_ignored` になりClaudeへ届かない | `webchat-events.jsonl` | ― |
-| T08 | BLOCKED | 同上 | ― | ― |
-| T09 | BLOCKED（Bashでの予備あり） | 下の「3. 停止の予備実測」を参照 | `transcript-tools-6d636d6b-….txt` | tmuxへEsc送信（補助経路） |
-| T10 | 一部実施 | `claude --resume 6d636d6b-…` で同じ会話IDに戻り、Channelも再登録された。合言葉を正しく返した。CUの再利用とアプリ承認の保持は未確認 | `T10-pane.txt`、seq 46〜52 | 開発用チャネル警告を再度端末で承認 |
+| T01 | PASS | 20:00 セッション `3727552c`。`request_access` は「TextEdit」「テキストエディット」で未検出となり、bundle ID `com.apple.TextEdit` で承認ダイアログが出た。承認後 `open_application`→`computer_batch`（cmd+N、type）→`zoom`。本文 `CHCU-r1012b-T01`、ウィンドウ「名称未設定 8.txt — 編集済み」 | `T01-02-app-approval-dialog.txt`、`T01-transcript-tools-3727552c.txt`、`screens/T01-zoom-01-*.jpg` | アプリ承認を端末でAllow（20:01:02） |
+| T02 | PASS（ローカル） | セッション `edfe3bf9`。WSで `FC-r1012b-T02` を送り、返信ツールの承認後に同じ文字列が返った（送信 11:03:04Z、受信 11:03:20Z）。続けてCU依頼を送ると端末にCU承認が出て、承認後に `CHCU-r1012b-T02` を「名称未設定 9.txt」へ入力、結果がWSに返った（11:04:11Z） | `T02-fakechat-ws.log`、`T02-01/03/04-*.txt`、`T02-transcript-tools-*.txt`、`screens/T02-zoom-01-*.jpg` | 返信承認×2とCU承認×1を端末で押した。fakechatに中継機能はない |
+| T03 | PASS（ローカル） | セッション `a482d1dc`。合言葉「ゆうやけ-r1012b-3K」を送り、次の発言で求めると同じセッションから `in_reply_to=m-r1012b-2` で同じ会話 `conv-r1012b` に合言葉だけが戻った（11:06:18Z） | `webchat-events-run2.jsonl` seq 66〜75、`T03-T04-transcript-tools-*.txt` | 開発用チャネル警告を端末で承認 |
+| T04 | PASS（ローカル） | 許可：返信ツール要求 `ackqg`、`yeinq` にAPIからallowを送ると実行された。拒否：Bash要求 `ddwpx`（`touch /tmp/chcu-r1012b-deny-marker.txt`）にdenyを送ると「Denied via channel webchat-test」となり、ファイルは作られなかった。存在しないID `qqqqq` は `known_open:false`、トークンなしは401 | seq 68〜84、`T04-02/03/04-*.txt` | 回答者は人ではなく検証者のcurl |
+| T05 実行 | PASS（端末承認つき） | セッション `66e6a74b`（Claude PID 75308）。11:07:25Z に送信、11:07:54Z の `request_access(com.apple.TextEdit)` で端末にCU承認が出た。端末で承認後、`computer_batch` で入力し、`zoom` で確認。11:09:14Z に本文 `CHCU-r1012b-A`、「名称未設定 10.txt — 編集済み」がWebChatへ返った | `T05-02-cu-app-dialog-pane.txt`、`T05-T07-transcript-tools-66e6a74b.txt`、`screens/T05-T07-T10-zoom-01-*.jpg`、`screens/R1-doc10-after-type-01.jpg` | CU承認を端末でAllow（20:08:49） |
+| T05 CU遠隔許可 | FAIL | CU承認ダイアログが端末に出てから51秒間（20:07:58〜20:08:49）、Channelには `permission_request` も `unknown_notification` も届かず、`/api/status` の `open_requests` は空のままだった。2周目（セッション `2a22d3d1`、20秒以上）も同じ | `T05-01-events-while-cu-dialog-open.txt`、`R2-01-events-while-cu-dialog.txt` | 端末でしか許可できない |
+| T06 | PASS（ローカル） | 同じセッション・会話。`screenshot` で確認後、`cmd+↓`→`type "-B"`。本文 `CHCU-r1012b-A-B`（11:10:24Z）。本文クリックは「通知センター」のオーバーレイ判定で2回ブロックされ、キーボード操作に切り替えた | `T06-01-reply.txt`、`screens/R1-doc10-after-type-02.jpg` | なし |
+| T07 | PASS（ローカル） | 「-C」送信（11:10:25Z）→処理開始を確認（20:10:27）→SSE切断（20:10:29、最終受信seq 99）。切断中に返信ツールの要求 `otxut`（11:10:42Z）が発生。`since=99` で再接続すると seq 100〜102 と `open_requests` が再生され、allow後に `CHCU-r1012b-A-B-C` を回収。続けて「-D」で `CHCU-r1012b-A-B-C-D`（11:11:10Z）。同じ `msg_id` の再送は `duplicate_ignored` | `T07-01-timeline.txt`、`T07-sse-client3.log`、`T07-02/03-*.txt`、`screens/R1-doc10-after-type-03/04.jpg`、`screens/T05-T07-T10-zoom-02-*.jpg` | なし |
+| 2周目 T05〜T07 | 同上 | 新規セッション `2a22d3d1`、会話 `conv-r1012b-run2`、「名称未設定 11.txt」に `CHCU-r1012b-R2-A-B-C-D`。CU承認は再び端末のみ。切断・再接続も同様に成立 | `R2-*`、`screens/R2-doc11-after-type-*.jpg`、`screens/R2-T09-zoom-01-*.jpg` | CU承認を端末でAllow（20:12:57） |
+| T08 | FAIL（遠隔拒否）／端末拒否は成立 | セッション `9928d84f`。CU承認が端末に出たが中継されず、端末で「Deny, and tell Claude what to do differently」を選んだ。ツール結果は `{"granted":[],"denied":[]}` で拒否が記録されない。Claudeは別名で `request_access` を再試行（未検出でダイアログは出ず）、次にBashでインストール確認を要求し、これは中継されたのでAPIからdeny。GUI操作ツールの呼び出しは0件。その後の通常質問には同じ会話で回答した | `T08-02/03/08-*.txt`、`T08-01-events-summary.txt`、`T08-06-cu-calls.txt`、`T08-transcript-tools-9928d84f.txt` | CU拒否を端末で選択（20:19:42）。Bash要求の拒否はAPI |
+| T09 | 補助経路でPASS／Channels単独では不成立 | 下の「3. 停止の実測」を参照 | `T09-A-timeline.txt`、`T09-B-timeline.txt`、`T09-B-pane-after-esc.txt`、`screens/R2-T09-zoom-02/03-*.jpg` | tmuxへEsc送信（`/api/interrupt`） |
+| T10 | 一部PASS | `start-session.sh --resume 66e6a74b-…` で同じ会話IDに戻り、画面に前回のやり取りが表示され、Channelも同じセッションIDで再登録された。CUは使えたが `list_granted_applications` は空で、`request_access` の承認ダイアログが再び端末に出た。承認後に「名称未設定 10.txt」の本文 `CHCU-r1012b-A-B-C-D` を画面確認して返した | `T10-00/02/03/04/05-*.txt`、`T10-session-id.txt`、`screens/T05-T07-T10-zoom-02-*.jpg` | 開発用チャネル警告とCU再承認を端末で押した |
 
-## 3. 停止の予備実測（CUの代わりにBashを使用）
+画面証拠は、CUの `zoom` 結果（領域限定）と、`computer_batch` の入力直後スクリーンショットをTextEditのウィンドウ部分だけに切り出した画像です。全画面のキャプチャは無関係なアプリの内容を含むため提出していません。検証者は切り出し前の画像で本文を目視確認しています。
 
-**予備A：チャットでの「停止してください」。** 子セッションの実行環境が前景の `sleep 40` をブロックしたため、Claudeは処理をバックグラウンドに回してターンを終えました。その後の「停止してください」は新しいターンとして処理され、Claudeが `TaskStop` でバックグラウンド処理を止めました。これは「Channelsのメッセージとして後から停止意図を処理した」例です。実行中のツール呼び出しを割り込みで止めた例ではありません。
+## 3. 停止の実測（T09、セッション `2a22d3d1`）
 
-**予備B：前景処理の中断。** 前景で約20秒かかる計算を始めた3秒後に、WebChatの「Esc送信」ボタンと同じAPIからtmuxへEscを送りました。端末に「Interrupted」と出て、後続の目印ファイルは作られませんでした。中断後にClaudeからWebChatへの返信はなく、WebChat側は停止を自力で確認できません。次の発言で、同じ会話の続きとして中断結果と合言葉が返りました。
+**T09-A：通常メッセージ。** 「名称未設定 12.txt」に `CHCU-r1012b-T09-01`〜`-10` を3秒間隔で入力する依頼を 11:15:14Z に送りました。Claudeは32アクションを1回の `computer_batch` にまとめ、11:15:33Z〜11:16:07Z に実行しました。「停止してください」は 11:15:24Z に送信し、バッチ開始より前に届いていましたが、処理されたのはバッチ完了後でした（11:16:22Z に「届いた時点で終わっていた」と返信）。10行すべてが入力されました。Channelsのメッセージは実行中の割り込みにはなりません。
 
-この経路は端末への入力で、Channelsの機能ではありません。WebChat画面では「補助」と表示し、送信結果も `key_sent_unconfirmed` として扱っています。
+**T09-B：補助経路。** 「名称未設定 13.txt」に `CHCU-r1012b-T09B-01`〜`-10` を依頼（11:16:54Z）。今回は1行ごとのバッチになりました。2行目のバッチ開始（11:17:08.9Z）の約3秒後、WebChatの `/api/interrupt`（tmuxへEscを送る）を 11:17:12.0Z に実行しました。端末に「Interrupted · What should Claude do instead?」が出て、ツール結果は「ユーザーが中断」になり、残り8行は入力されませんでした。次の発言（11:17:22Z）に同じ会話で応答し、画面確認で2行入力済みであることを報告しました（`zoom` 11:17:35Z）。
+
+注意点として、Escは2行目の `type` 完了後の `wait` 中に届いたため、ツール結果が「却下」でも2行目は入力済みでした。中断後の実状態は画面で確認する必要があります。この経路は端末への入力で、Channelsの機能ではありません。
 
 ## 4. 能力ごとの最終回答
 
 | 判断したいこと | 結論と条件 |
 | --- | --- |
-| 別端末から純正CUを実行できるか | 未確認。対象MacのCU用OS権限が未付与で、CUが一度も動いていない |
-| CU固有の許可と拒否をWebChatで扱えるか | 未確認。公式資料も中継対象として明記していない。CUのアプリ承認は `request_access` ツール内の端末ダイアログとして出ることだけ確認した |
-| 同じ会話で画面を再確認しながら操作を続けられるか | 未確認。会話の継続自体は成立した |
-| WebChat再接続後に結果を回収し、重複なく続けられるか | 仕組みは成立（イベント再生と送信ID重複排除）。CU操作では未確認 |
-| 実行中に遠隔停止できるか。どの経路か | Channelsの通常メッセージは割り込みにならない。前景処理はtmuxへのEsc送信という補助経路で中断できた（Bashでの予備）。CU操作中は未確認 |
-| 別ネットワークからも実施できたか | 未実施。同じMac内のみ |
-| セッション起動・再起動時に何の人手が必要か | 下の「5. 対象Macで必要だった操作」を参照。開発用チャネル警告は起動のたびに端末で承認が必要だった |
-| CLI再開後もCUを利用できるか | 未確認。会話履歴とChannel再接続は成立 |
+| 別端末から純正CUを実行できるか | 同じMac上のAPI呼び出しでは成立（T05、2周目）。別端末・別ネットワークは未実施 |
+| CU固有の許可と拒否をWebChatで扱えるか | できない。CUのアプリ承認はpermission relayに流れず、端末ダイアログのみ。通常ツールの許可・拒否はできる |
+| 同じ会話で画面を再確認しながら操作を続けられるか | できる（T06、T07、2周目）。本文の重複や作り直しはなかった |
+| WebChat再接続後に結果を回収し、重複なく続けられるか | できる。`since` 再生で切断中の承認要求と結果を回収し、`msg_id` の重複送信は無視される |
+| 実行中に遠隔停止できるか。どの経路か | Channelsのメッセージでは不可。tmuxへのEsc送信（端末操作の代行）なら実行中のバッチを中断でき、会話も続く |
+| 別ネットワークからも実施できたか | 未実施 |
+| セッション起動・再起動時に何の人手が必要か | 開発用チャネル警告の承認（起動ごと、端末のみ）。CUのアプリ承認（セッションごと、端末のみ）。OS権限付与後はClaude Codeの再起動 |
+| CLI再開後もCUを利用できるか | 利用できるが、アプリ承認はやり直し。会話履歴とChannel再接続は維持 |
 
 ## 5. 対象Macで必要だった操作（介入記録）
 
-すべて検証者（このClaude Codeセッション）がtmux経由で対象Macの端末に入力しました。人による操作はありません。
-
-| 時刻（JST） | 操作 | 区分 | 理由 | 影響したケース |
+| 時刻（JST） | 操作 | 区分 | 操作者 | 影響したケース |
 | --- | --- | --- | --- | --- |
-| 18:05頃 | `brew install tmux` | 初期設定 | 端末を保持して遠隔からEscを送るため | 全体 |
-| 18:10 | 「New MCP server found: webchat-test」で「Use this MCP server」 | セッション起動時の確認（初回のみ） | `.mcp.json` のサーバー同意 | 全体 |
-| 18:10 | Claude in Chrome の案内で「No」 | セッション起動時の確認（初回のみ） | ブラウザ操作を試験から除外 | T01 |
-| 18:10 | `/mcp` で `computer-use` を Enable | 初期設定（プロジェクト単位で1回） | 組み込みCUの有効化 | T01以降 |
-| 18:11 | macOS権限ダイアログをEscで閉じた | 初期OS設定（未完了） | 権限付与は人の操作が必要 | T01 |
-| 18:12、18:17 | 開発用チャネル警告で「I am using this for local development」 | セッション起動時の確認（毎回） | `--dangerously-load-development-channels` の仕様 | T03〜T10 |
-| 18:16:50 | WebChat APIからtmuxへEsc | 緊急停止（補助経路） | 停止の予備実測 | T09予備 |
-| 18:18 | `claude plugin install fakechat@claude-plugins-official --scope user` | 初期設定 | T02 | T02 |
-| 18:19:05 | fakechatの返信承認を端末でEnter | 日常のアプリ承認ではなく通常ツール承認 | fakechatは承認を中継しない | T02 |
-| 各試験の終わり | `/exit` | 試験間の切り替え | CUロックの解放 | 全体 |
+| 19:57頃 | システム設定でTerminal.appにアクセシビリティを付与 | 初期OS設定 | 人 | T01以降すべて |
+| 19:59〜20:00 | 付与前に起動したセッションを `/exit`、tmuxサーバーを再起動 | 初期OS設定の反映 | 検証者 | T01 |
+| 20:01:02 | CUアプリ承認をAllow | 日常のアプリ承認 | 検証者（tmux） | T01 |
+| 20:03:20、20:04:11 | fakechatの返信ツール承認をEnter | 通常ツール承認 | 検証者（tmux） | T02 |
+| 20:03:50 | CUアプリ承認をAllow | 日常のアプリ承認 | 検証者（tmux） | T02 |
+| 20:05:22、20:07:16、20:12:11、20:18:56、20:23:31 | 開発用チャネル警告で「I am using this for local development」 | セッション起動時の確認（毎回） | 検証者（tmux） | T03〜T10 |
+| 20:08:49、20:12:57、20:23:47 | CUアプリ承認をAllow | 日常のアプリ承認 | 検証者（tmux） | T05、2周目、T10 |
+| 20:17:12 | `/api/interrupt` でtmuxへEsc | 緊急停止（補助経路） | 検証者（API） | T09-B |
+| 20:19:42 | CUアプリ承認をDeny | 日常のアプリ承認 | 検証者（tmux） | T08 |
+| 各試験の終わり | `/exit` | 試験間の切り替え | 検証者（tmux） | 全体 |
 
-## 6. 残りの試験の進め方
+通常ツールの承認（返信ツール、Bash）はすべてWebChat API（`/api/verdict`）から回答し、端末では押していません。
 
-対象Macの前に人がいる状態で、次の順に進めてください。
+## 6. 後片付け
 
-1. システム設定の「プライバシーとセキュリティ」で、「アクセシビリティ」と「画面収録とシステムオーディオ録音」にTerminal.appを追加してオンにする。tmux経由の起動でどのアプリ名が要求されるかは未確認なので、最初は `tmux attach -t chcu` した状態で権限ダイアログの「Open System Settings」から開く。
-2. Terminal.appを終了して開き直す。画面収録の反映には再起動が必要な場合がある。
-3. 通常の `claude` でT01を再実行し、TextEditへの入力とCUツールの記録を確認してから `/exit` する。
-4. `verification/webchat-test/start-session.sh` でT03以降のセッションを起動し、`tmux attach -t chcu` で開発用チャネル警告に答えてから detach する（Ctrl+B のあと D）。
-5. 別端末で WebChat を開く。同じLANなら `WEBCHAT_HOST=0.0.0.0` を付けて起動し、`http://<対象MacのIP>:8790/#token=<token>` を開く。別ネットワークからは、SSHトンネル等で `127.0.0.1:8790` へ届く経路を用意する。トークンは `~/.claude/channels/webchat-test/token` にある。
-6. T05〜T09を依頼書どおり人が操作する。CUの承認がWebChatに出たかは、画面の承認カードと `events.jsonl` の `permission_request` または `unknown_notification` の有無で判定できる。
-7. 後片付けとして、試験用TextEdit書類を保存せずに閉じる。
+未実施です。試験用の未保存書類「名称未設定 8〜13.txt」がTextEditに開いたまま残っています（8：T01、9：T02、10：T05〜T07とT10、11：2周目、12：T09-A、13：T09-B）。TextEditにはこれら以外の未保存書類もあるため、検証者は誤って閉じないよう操作していません。20:25にosascriptで書類名の一覧取得を試みましたが、20秒以内に応答がなく中止しました（Automation権限の確認が出た可能性があります）。
 
-この Mac では `Control_VPS_byClaw` が見つからなかったため、既存VPS経路は使っていません。
+対象Macの人が、上記6枚だけを「保存しない（削除）」で閉じてください。
 
 ## 7. 検証用構成と採用時の最小構成
 
 ```
-別端末ブラウザ ──HTTP(SSE+POST, Bearerトークン)──> webchat-test (Bun, 対象Mac)
-                                                   │ stdio (MCP)
-                                                   ▼
-                                     Claude Code 対話CLI (tmux "chcu")
-                                                   │ 組み込み computer-use
-                                                   ▼
-                                               TextEdit 等
-WebChat「Esc送信(補助)」──> webchat-test ──tmux send-keys Escape──> 同じ端末
+WebChat（別端末想定）──HTTP(SSE+POST, Bearer)──> webchat-test (Bun, 対象Mac :8790)
+                                                 │ stdio (MCP, claude/channel + permission)
+                                                 ▼
+                                   Claude Code 対話CLI (tmux "chcu", manual mode)
+                                                 │ 組み込み computer-use
+                                                 ▼
+                                             TextEdit
+WebChat「Esc送信(補助)」──> /api/interrupt ──tmux send-keys Escape──> 同じ端末
 ```
 
-webchat-test は次を持ちます。
+採用する場合に残る制約は次のとおりです。
 
-- `claude/channel` と `claude/channel/permission` を宣言し、返信ツール `reply` を公開する。
-- すべての受信・送信・承認・切断を `~/.claude/channels/webchat-test/events.jsonl` に追記する。起動時に自分の PID、親の Claude Code の PID、`CLAUDE_CODE_SESSION_ID` を記録するので、ログとセッションを対応付けられる。
-- 既知の形式以外の通知を `unknown_notification` として記録する。CUの承認が別の形で届いた場合もここで見える。
-- 承認の回答は専用API `/api/verdict` で送る。会話としては送らないので二重送信にならない。
-
-採用する場合も、次の制約は残ります。
-
-- 独自Channelは research preview の間、許可リストに載らず、開発用フラグで起動する必要がある。その警告ダイアログは起動のたびに端末で答える必要があり、中継されない。
-- Channelsのメッセージは処理中に割り込めない。実行中の停止には端末への入力という補助経路が要る。
-- 承認がWebChatから届いても、端末側のダイアログも同時に開いている。どちらか早い方が採用される。
-- CUのロックはセッション終了まで保持されるため、CUを使う会話は1台につき同時に1つだけになる。
+- CUのアプリ承認は端末ダイアログにしか出ない。WebChat完結にするには、tmuxの画面を読み取ってWebChatに表示し、選択キーを送る補助機能が要る。これは端末操作の代行であり、Channelsの機能ではない。
+- 実行中の停止も同じ補助経路が要る。停止後の実状態（どこまで入力されたか）は画面で確認する必要がある。
+- 独自Channelは research preview の間、起動のたびに開発用チャネル警告を端末で答える必要がある。
+- CUの再開後はアプリ承認がやり直しになる。
+- CUのロックはセッション終了まで保持され、1台につきCUを使う会話は同時に1つ。
+- 日本語環境ではアプリ名「TextEdit」「テキストエディット」が解決されず、bundle IDの指定が必要だった。クリック位置によっては「通知センター」のオーバーレイ判定でクリックがブロックされる。
+- 通常ツールの承認はWebChatと端末の両方に同時に出る。早い方の回答が採用される。
+- 検証者のセッション（`.claude/settings.local.json` の `enabledMcpjsonServers`）がwebchat-testとfakechatを通常のMCPサーバーとして起動し、ポート8790・8787を占有していた。被験セッションを起動する前に止める必要があった。
 
 ## 8. 提案
 
-現時点では、Channelsを主な接続経路として採用するかを判断できません。会話の往復、通常ツールの承認中継、再接続後の回収、CLI再開は予備実測で成立しており、経路としての見込みはあります。
+Channelsを会話・通常ツール承認・再接続の主経路として採用し、CU承認・停止・起動時確認の3場面だけ端末の補助経路で補う構成を提案します。追加実装は次の2点です。
 
-判断に必要な残りは、CUのアプリ承認がChannelに中継されるか（T05）と、CU操作中の停止（T09）の2点です。前者が中継されない場合、CU承認だけは端末の補助経路が必要になります。その場合は、tmuxの画面を読み取ってWebChatに表示し、選択キーを送る補助機能を追加することで、目的を満たせる可能性があります。ただしこれはChannelsの機能ではなく、端末操作の代行として扱う必要があります。
+1. tmuxペインの画面を定期的に読み取り、CU承認ダイアログや開発用チャネル警告を検出してWebChatに表示し、選択キー（Enter、Down、Esc）を送るAPI。既存の `/api/interrupt` と同じ経路の拡張で済みます。
+2. 停止後に画面を再確認して実状態を返す定型指示。中断時のツール結果は部分実行を反映しないためです。
+
+Claude Code側でCUの承認がpermission relayに流れるようになれば、1は不要になります。その時点で再検証してください。
+
+別端末・別ネットワークからの実施は未検証です。採用判断の前に、SSHトンネル等で `127.0.0.1:8790` へ届く経路を用意し、T03・T05・T07を1回ずつ別端末から実施する必要があります。
 
 ## 9. 再現手順
 
 ```bash
 # 前提: macOS, Claude Code v2.1.296 以降, claude.ai 認証 (Pro/Max), Bun, tmux
+# Terminal.app に「アクセシビリティ」「画面収録」を付与し、付与後に Claude Code を起動し直す
 cd ~/Desktop/逃し/concierge_test
 git switch test/claude-channels-cu
 (cd verification/webchat-test && bun install)
@@ -159,30 +155,33 @@ mkdir -p ~/.claude/channels/webchat-test
 openssl rand -hex 16 > ~/.claude/channels/webchat-test/token
 chmod 600 ~/.claude/channels/webchat-test/token
 
-# 初回のみ: 通常起動で /mcp → computer-use → Enable、macOS権限を付与
+# 初回のみ: 通常起動で /mcp → computer-use → Enable
 claude
 
-# Channel付きで起動 (tmux)
-verification/webchat-test/start-session.sh
-tmux attach -t chcu        # 開発用チャネル警告に答えて Ctrl+B, D
+# 検証者側のセッションが webchat-test/fakechat を MCP として起動していればポートを解放する
+lsof -nP -iTCP:8790 -iTCP:8787 -sTCP:LISTEN
 
-# 動作確認 (同じMacから)
-TK=$(cat ~/.claude/channels/webchat-test/token)
-curl -sN "localhost:8790/api/events?since=0&token=$TK" &
-curl -s localhost:8790/api/send -H "Authorization: Bearer $TK" \
-  -H 'content-type: application/json' \
-  -d '{"conv_id":"conv-test","msg_id":"m1","text":"hello"}'
-curl -s localhost:8790/api/verdict -H "Authorization: Bearer $TK" \
-  -H 'content-type: application/json' -d '{"request_id":"<id>","behavior":"allow"}'
+# Channel付きで起動 (tmux)。開発用チャネル警告に端末で答える
+verification/webchat-test/start-session.sh          # 再開は --resume <session-id>
+tmux send-keys -t chcu Enter                         # または tmux attach -t chcu
 
-# 後片付け
-tmux send-keys -t chcu /exit Enter
+# WebChat API（別端末からは SSH トンネル等で 127.0.0.1:8790 へ）
+source verification/webchat-test/tools/flow.sh      # send / verdict / waitpr / allow_reply
+CONV=conv-test send m1 'hello'
+allow_reply $(lastseq)                               # 返信ツールの承認要求を allow して返信を待つ
+curl -s -X POST localhost:8790/api/interrupt -H "Authorization: Bearer $TK"   # 補助経路の停止
+
+# 証拠の抽出
+python3 -I verification/webchat-test/tools/extract.py ~/.claude/projects/<slug>/<session-id>.jsonl
+python3 -I verification/webchat-test/tools/images2.py <transcript.jsonl> <outdir> <prefix>   # zoom 画像のみ
+
+# 後片付け: 試験用 TextEdit 書類を保存せずに閉じる。tmux send-keys -t chcu /exit Enter
 ```
 
 ## 10. 補足
 
-- 子セッションでは、ユーザー設定のフック（`claudecode-monitor/hooks/claude-code-hook.sh`）が見つからないというエラーが毎回出た。動作は止まらず、試験結果には影響していない。
-- 対象Macのスクリーンショット取得（`screencapture`）も画面収録の権限不足で失敗した。画面証拠はCUが動く状態になってから取る必要がある。
-- WebChat画面（`index.html`）は、スクリプトの構文確認とHTTP応答の確認までで、実ブラウザでの表示確認はしていない。今回の操作はすべて同じAPIをcurlから呼んで行った。
-- 今回の全セッションを通じて、`unknown_notification`（既知の形式以外の通知）は一件も記録されなかった。CUが動かなかったため、CU承認の通知の有無はまだ判断材料にならない。
-- fakechat付きセッションでも `webchat-test` は通常のMCPサーバーとして起動したが、Channelとして登録されていないため承認要求は届かなかった（seq 53〜54以降に `permission_request` がない）。公式資料の「v2.1.234以降はChannel登録済みのサーバーにだけ承認を送る」という記述と一致する。
+- 被験セッションでは、ユーザー設定のフック（`claudecode-monitor/hooks/claude-code-hook.sh`）が見つからないエラーが毎回出た。動作は止まらず、結果には影響していない。証拠のペイン出力からはこの行を除いている。
+- 全セッションを通じて `unknown_notification` は一件も記録されなかった。CU承認はMCP通知として一切Channelに送られていない。
+- T08で端末からDenyを選んでも `request_access` の結果は `denied: []` で、拒否がアプリ単位で記録されない。Claudeは別名で再要求し、bundle IDで再要求していれば承認ダイアログが再び出た可能性がある。
+- 返信ツールの承認は毎回要求される（「don't ask again」は選んでいない）。実運用では返信ツールを許可リストに入れると承認要求が減る。
+- `start-session.sh` は macOS 標準の bash 3.2 で `set -u` と空配列の組み合わせにより起動できなかったため修正した。

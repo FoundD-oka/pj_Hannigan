@@ -1,0 +1,4 @@
+87 2026-10-12T11:07:23.750Z browser_connected
+88 2026-10-12T11:07:25.771Z user_message
+89 2026-10-12T11:07:25.772Z written_to_channel
+{"pid":75491,"ppid":75308,"seq":89,"open_requests":[],"tmux_target":"chcu:0.0"}

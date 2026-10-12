@@ -1,0 +1,8 @@
+⏺ Calling computer-use… (ctrl+o to expand)
+────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────
+  Computer Use wants to control these apps
+   │ セッション再開後の確認として、テキストエディットで先ほど作成した書類の本文とウィンドウ名を画面で読み取ります（入力はしません）。
+     ◉ テキストエディット
+   ❯ Deny, and tell Claude what to do differently (esc)
+     Allow for this session (1 app)
+  Enter to confirm · Esc to cancel

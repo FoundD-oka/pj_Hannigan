@@ -1,0 +1,3 @@
+run2 C: SSE closed at 20:14:01 after processing started
+reply request iswvt arrived while disconnected at 20:14:18; reconnect since=125
+replayed events: 3

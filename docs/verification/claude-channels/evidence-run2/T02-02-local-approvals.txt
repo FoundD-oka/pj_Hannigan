@@ -1,0 +1,3 @@
+local Enter(Yes) at 20:03:20
+local Down+Enter(Allow for this session, TextEdit) at 20:03:50
+reply dialog at 20:04:11; local Enter(Yes)

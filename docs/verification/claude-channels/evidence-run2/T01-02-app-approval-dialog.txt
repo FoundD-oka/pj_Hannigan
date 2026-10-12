@@ -1,0 +1,16 @@
+  ⎿  PostToolUse:mcp__computer-use__request_access hook error
+  ⎿  Failed with non-blocking status code: /bin/sh: /Users/m1_mini/Git/claudecode-monitor/hooks/claude-code-hook.sh: No such file or directory
+⏺ 日本語環境なので「テキストエディット」の表示名で再試行するね。ついでにbundle IDも候補に入れとく。
+⏺ Calling computer-use 2 times… (ctrl+o to expand)
+  ⎿  PreToolUse:mcp__computer-use__request_access hook error
+  ⎿  Failed with non-blocking status code: /bin/sh: /Users/m1_mini/Git/claudecode-monitor/hooks/claude-code-hook.sh: No such file or directory
+  ⎿  PostToolUse:mcp__computer-use__request_access hook error
+  ⎿  Failed with non-blocking status code: /bin/sh: /Users/m1_mini/Git/claudecode-monitor/hooks/claude-code-hook.sh: No such file or directory
+────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────
+  Computer Use wants to control these apps
+   テキストエディットで新規書類を開いて検証用の文字列を入力し、画面を確認します。
+     ◉ テキストエディット
+   4 other apps will be hidden while Claude works.
+   ❯ Deny, and tell Claude what to do differently (esc)
+     Allow for this session (1 app)
+  Enter to confirm · Esc to cancel

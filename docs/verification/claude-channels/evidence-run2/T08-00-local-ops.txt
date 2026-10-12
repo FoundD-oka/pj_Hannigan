@@ -1,0 +1,4 @@
+T08: dev dialog, local Enter at 20:18:56
+CU app dialog in pane at 20:19:27
+CU deny NOT possible from WebChat (no request relayed). Local Enter on 'Deny, and tell Claude what to do differently' at 20:19:42
+{"status":"verdict_written","known_open":true} [deny yrvzh at 20:22:29]

@@ -1,0 +1,8 @@
+  Calling computer-use… (ctrl+o to expand)
+────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────
+  Computer Use wants to control these apps
+   │ WebChat経由の検証タスクとして、TextEditの新規書類にテスト文字列「CHCU-r1012b-T08」を入力します。
+     ◉ テキストエディット
+   ❯ Deny, and tell Claude what to do differently (esc)
+     Allow for this session (1 app)
+  Enter to confirm · Esc to cancel

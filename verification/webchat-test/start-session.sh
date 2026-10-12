@@ -21,7 +21,7 @@ env -i HOME="$HOME" USER="$USER" LOGNAME="$USER" SHELL=/bin/zsh \
   TERM=xterm-256color TERM_PROGRAM="${TERM_PROGRAM:-Apple_Terminal}" LANG=ja_JP.UTF-8 \
   WEBCHAT_HOST="${WEBCHAT_HOST:-127.0.0.1}" WEBCHAT_PORT="${WEBCHAT_PORT:-8790}" \
   tmux new-session -d -s chcu -x 160 -y 48 -c "$REPO" \
-  claude --permission-mode manual --dangerously-load-development-channels server:webchat-test "${EXTRA[@]}"
+  claude --permission-mode manual --dangerously-load-development-channels server:webchat-test ${EXTRA[@]+"${EXTRA[@]}"}
 TOKEN="$(cat "$HOME/.claude/channels/webchat-test/token")"
 echo "started. attach: tmux attach -t chcu"
 echo "WebChat URL (keep private): http://<host>:${WEBCHAT_PORT:-8790}/#token=${TOKEN}"

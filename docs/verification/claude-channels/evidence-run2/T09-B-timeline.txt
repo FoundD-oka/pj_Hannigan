@@ -1,0 +1,15 @@
+== T09-B: auxiliary interrupt (tmux Esc via /api/interrupt) ==
+{"status":"accepted_and_written_to_channel","seq":146} [sent m-r2-9b at 20:16:54]
+computer_batch with T09B lines issued (seen in transcript) at 20:17:01
+POST /api/interrupt at 20:17:11
+{"status":"key_sent_unconfirmed","seq":148}== tool result of the interrupted batch ==
+2026-10-12T11:17:06.116Z TOOL_RESULT [{"type": "text", "text": "[1/5] key: Key pressed."}, {"type": "text", "text": "[2/5] wait: Waited 1.5s."}, {"type": "text", "text": "[3/5] type: Typed 19 grapheme(s)."}, {"type": "text", "text": "[4/5] key: Key pressed."}, {"type": "text", "text": "[5/5] wait: Waited 3s."}]
+2026-10-12T11:17:08.891Z TOOL_USE mcp__computer-use__computer_batch {"actions": [{"action": "type", "text": "CHCU-r1012b-T09B-02", "action_summary": "2行目を入力する"}, {"action": "key", "text": "return", "action_summary": "改行する"}, {"action": "wait", "duration": 3}]}
+2026-10-12T11:17:12.081Z TOOL_RESULT The user doesn't want to proceed with this tool use. The tool use was rejected (eg. if it was a file edit, the new_string was NOT written to the file). STOP what you are doing and wait for the user to tell you how to proceed.  Note: The user's next message may co
+2026-10-12T11:17:12.092Z USER_TEXT [Request interrupted by user for tool use]
+== reply/new instruction after interrupt ==
+  146 2026-10-12T11:16:54.297Z user_message  T09の続きです。TextEditでさらに新しい未保存書類を作り、「CHCU-r1012b-T09B-01」から「CHCU-r1012b-T09B-10」までを
+  147 2026-10-12T11:16:54.298Z written_to_channel  
+  148 2026-10-12T11:17:11.998Z interrupt_key_sent  auxiliary:tmux send-keys Escape (terminal input, not Channels)
+{"status":"accepted_and_written_to_channel","seq":149} [sent m-r2-9c at 20:17:22]
+{"seq": 153, "ts": "2026-10-12T11:17:51.215Z", "kind": "assistant_reply", "conv_id": "conv-r1012b-run2", "text": "はい、直前のT09B入力は途中で中断されたよ。\n\n経緯:\n- 今回は1行ごとにバッチを分けて実行してた\n- 1行目のバッチ（cmd+N → CHCU-r1012b-T09B-01 → 改行 → 3秒待ち）は完了\n- 2行目のバッチ（CHCU-r1012b-T09B-02 → 改行 → 3秒待ち）は、ツール呼び出しがユーザー側で却下されて「中断」の扱いになった\n- その後は入力操作を一切せず、画面確認（screenshot と zoom）だけ実行した\n\n画面で確認した実際の状態:\n- ウィンドウ名: 名称未設定 13.txt — 編集済み\n- 入力済みの行数: 2行（CHCU-r1012b-T09B-01、CHCU-r1012b-T09B-02）\n- 3行目は空行で、カーソルがそこにある状態\n\n注意点として、ツールの戻り値は「2行目は却下
