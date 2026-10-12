@@ -3,9 +3,9 @@
 # inside tmux session "chcu", so the WebChat "Esc" button (auxiliary path) can reach it.
 #
 # usage:
-#   verification/webchat-test/start-session.sh                # localhost only (use SSH tunnel)
-#   WEBCHAT_HOST=0.0.0.0 verification/webchat-test/start-session.sh   # same-LAN test
-#   verification/webchat-test/start-session.sh --resume <session-id>  # T10
+#   prototype/webchat-test/start-session.sh                # localhost only (use SSH tunnel)
+#   WEBCHAT_HOST=0.0.0.0 prototype/webchat-test/start-session.sh   # same-LAN test
+#   prototype/webchat-test/start-session.sh --resume <session-id>  # T10
 #
 # After start, attach with:  tmux attach -t chcu
 # The development-channel warning dialog must be answered in that terminal.

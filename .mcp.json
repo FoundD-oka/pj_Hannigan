@@ -2,7 +2,7 @@
   "mcpServers": {
     "webchat-test": {
       "command": "bun",
-      "args": ["./verification/webchat-test/server.ts"],
+      "args": ["./prototype/webchat-test/server.ts"],
       "env": { "WEBCHAT_TMUX_TARGET": "chcu:0.0" }
     }
   }

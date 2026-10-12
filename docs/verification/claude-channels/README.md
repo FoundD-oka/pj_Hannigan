@@ -4,7 +4,7 @@
 実施者：Claude Code（自律実行セッション `47702cdb-…`、Terminal.app上）。人の操作者は対象Macの前にいて、OS権限の付与だけを行った  
 run_id：`r1012b`  
 ブランチ：`test/claude-channels-cu`（基準commit `85ea0e6`）  
-検証コード：[`verification/webchat-test/`](../../../verification/webchat-test/)  
+検証コード：[`prototype/webchat-test/`](../../../prototype/webchat-test/)  
 証拠：[`evidence-run2/`](evidence-run2/)（第1回の証拠は [`evidence/`](evidence/)、第1回レポートは [`report-01-20261012-blocked.md`](report-01-20261012-blocked.md)）
 
 ## 0. 結論
@@ -28,7 +28,7 @@ run_id：`r1012b`
 | 操作用端末 | なし。同じMac上の curl（SSE受信・送信・承認回答）と Bun 製WebSocketクライアント（fakechat用）で代用 | ― |
 | 接続経路 | 127.0.0.1 のみ。別LAN・別ネットワークは未実施 | ― |
 | Claude Code | v2.1.296、claude.ai認証、Max プラン。モデル Fable 5.1（effort high） | `claude --version`、起動バナー |
-| 被験セッションの起動 | Terminal.app（Apple_Terminal 470.2）→ tmux 3.8 の中で対話型CLI。`--permission-mode manual` | [`start-session.sh`](../../../verification/webchat-test/start-session.sh) |
+| 被験セッションの起動 | Terminal.app（Apple_Terminal 470.2）→ tmux 3.8 の中で対話型CLI。`--permission-mode manual` | [`start-session.sh`](../../../prototype/webchat-test/start-session.sh) |
 | 検証者セッション | 同じTerminal.appで `claude --dangerously-skip-permissions`。被験セッションとは別プロセスで、CUは使っていない | `ps` |
 | 組み込みCU | `/mcp` で有効化済み（第1回で設定）。`request_access`、`open_application`、`computer_batch`、`zoom` 等 | transcript |
 | 独自Channel | `webchat-test` 0.0.1（第1回と同じコード。起動スクリプトのbash 3.2対応のみ修正） | `.mcp.json`、`git diff` |
@@ -148,9 +148,9 @@ Claude Code側でCUの承認がpermission relayに流れるようになれば、
 ```bash
 # 前提: macOS, Claude Code v2.1.296 以降, claude.ai 認証 (Pro/Max), Bun, tmux
 # Terminal.app に「アクセシビリティ」「画面収録」を付与し、付与後に Claude Code を起動し直す
-cd ~/Desktop/逃し/concierge_test
+cd /Volumes/SanD/Mac_m1_mini_archive/Git_full_no_xattrs/pj_Hannigan
 git switch test/claude-channels-cu
-(cd verification/webchat-test && bun install)
+(cd prototype/webchat-test && bun install)
 mkdir -p ~/.claude/channels/webchat-test
 openssl rand -hex 16 > ~/.claude/channels/webchat-test/token
 chmod 600 ~/.claude/channels/webchat-test/token
@@ -162,18 +162,18 @@ claude
 lsof -nP -iTCP:8790 -iTCP:8787 -sTCP:LISTEN
 
 # Channel付きで起動 (tmux)。開発用チャネル警告に端末で答える
-verification/webchat-test/start-session.sh          # 再開は --resume <session-id>
+prototype/webchat-test/start-session.sh          # 再開は --resume <session-id>
 tmux send-keys -t chcu Enter                         # または tmux attach -t chcu
 
 # WebChat API（別端末からは SSH トンネル等で 127.0.0.1:8790 へ）
-source verification/webchat-test/tools/flow.sh      # send / verdict / waitpr / allow_reply
+source prototype/webchat-test/tools/flow.sh      # send / verdict / waitpr / allow_reply
 CONV=conv-test send m1 'hello'
 allow_reply $(lastseq)                               # 返信ツールの承認要求を allow して返信を待つ
 curl -s -X POST localhost:8790/api/interrupt -H "Authorization: Bearer $TK"   # 補助経路の停止
 
 # 証拠の抽出
-python3 -I verification/webchat-test/tools/extract.py ~/.claude/projects/<slug>/<session-id>.jsonl
-python3 -I verification/webchat-test/tools/images2.py <transcript.jsonl> <outdir> <prefix>   # zoom 画像のみ
+python3 -I prototype/webchat-test/tools/extract.py ~/.claude/projects/<slug>/<session-id>.jsonl
+python3 -I prototype/webchat-test/tools/images2.py <transcript.jsonl> <outdir> <prefix>   # zoom 画像のみ
 
 # 後片付け: 試験用 TextEdit 書類を保存せずに閉じる。tmux send-keys -t chcu /exit Enter
 ```
