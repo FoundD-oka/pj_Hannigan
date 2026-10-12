@@ -19,7 +19,7 @@ Claude Code Channels ベースの遠隔運用システム。最終的に OSS と
 - 作業 Mac では Claude ではない常駐プログラムが、tmux の中で Claude Code を起動・停止し、結果をハブへ返す
 - 設定はファイルを正とし、設定画面はそれを編集する道具。秘密情報は分けて保存する
 
-詳細は [docs/design/00-architecture.md](docs/design/00-architecture.md)。
+詳細は [docs/design/00-architecture.md](docs/design/00-architecture.md)、進め方は [docs/ROADMAP.md](docs/ROADMAP.md)。
 
 ## 現状
 
@@ -36,6 +36,10 @@ Claude Code Channels ベースの遠隔運用システム。最終的に OSS と
 - Channels は「起動済みの 1 セッションに出来事を流し込む」一方向の仕組み。新しいスレッドの作成やフォルダの切り替えはできないため、ワーカー常駐プログラムがプロセスの起動で代替する
 - 純正 Computer Use のアプリ承認、実行中の停止、起動時警告は端末にしか出ない。通常ツールの承認は Channels で中継できる
 - 1 台の Mac で Computer Use を使えるセッションは同時に 1 つ
+
+## ライセンス
+
+MIT License。[LICENSE](LICENSE) を参照。
 
 ## 由来
 
