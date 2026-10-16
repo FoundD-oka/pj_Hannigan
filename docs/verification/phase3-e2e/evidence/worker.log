@@ -1,0 +1,27 @@
+{"ts":"2026-10-16T03:51:18.905Z","c":"worker","msg":"worker started","worker":"local","local":"127.0.0.1:25576","projects":1}
+{"ts":"2026-10-16T03:51:18.910Z","c":"worker","msg":"connected to hub","hub":"ws://127.0.0.1:25575/ws/worker","resent":0}
+{"ts":"2026-10-16T03:51:29.114Z","c":"worker","msg":"command","id":"c-d71f4587bc8a6863","name":"list","ok":true}
+{"ts":"2026-10-16T03:51:34.815Z","c":"worker","msg":"session launch","session":"e55ed1e0-7bc1-4bc0-be91-95c10bcb7660","tmux":"hntjvi1-e2e-e55ed1e0","resume":false,"ok":true}
+{"ts":"2026-10-16T03:51:34.816Z","c":"worker","msg":"command","id":"c-a00d57a917e6278d","name":"pm_send","ok":true}
+{"ts":"2026-10-16T03:51:36.447Z","c":"worker","msg":"terminal answer","session":"e55ed1e0-7bc1-4bc0-be91-95c10bcb7660","kind":"workspace_trust","option":"Yes, I trust this folder"}
+{"ts":"2026-10-16T03:51:36.447Z","c":"worker","msg":"command","id":"c-eb22d70ae63b1219","name":"terminal_answer","ok":true}
+{"ts":"2026-10-16T03:51:38.559Z","c":"worker","msg":"terminal answer","session":"e55ed1e0-7bc1-4bc0-be91-95c10bcb7660","kind":"dev_channel_warning","option":"I am using this for local development"}
+{"ts":"2026-10-16T03:51:38.559Z","c":"worker","msg":"command","id":"c-96e8480ab50b566d","name":"terminal_answer","ok":true}
+{"ts":"2026-10-16T03:51:38.865Z","c":"worker","msg":"bridge connected","session":"e55ed1e0-7bc1-4bc0-be91-95c10bcb7660","pid":54501}
+{"ts":"2026-10-16T03:51:49.803Z","c":"worker","msg":"command","id":"c-062e7ababe45cd67","name":"approval_answer","ok":true}
+{"ts":"2026-10-16T03:52:23.356Z","c":"worker","msg":"command","id":"c-63a57bc45313501e","name":"pm_send","ok":true}
+{"ts":"2026-10-16T03:52:31.471Z","c":"worker","msg":"session launch","session":"5e206f64-bbe5-4066-b852-661be640ab5c","tmux":"hntjvi1-e2e-5e206f64","resume":false,"ok":true}
+{"ts":"2026-10-16T03:52:33.325Z","c":"worker","msg":"terminal answer","session":"5e206f64-bbe5-4066-b852-661be640ab5c","kind":"dev_channel_warning","option":"I am using this for local development"}
+{"ts":"2026-10-16T03:52:33.325Z","c":"worker","msg":"command","id":"c-115bb24b55c7db8d","name":"terminal_answer","ok":true}
+{"ts":"2026-10-16T03:52:33.597Z","c":"worker","msg":"bridge connected","session":"5e206f64-bbe5-4066-b852-661be640ab5c","pid":57638}
+{"ts":"2026-10-16T03:53:29.465Z","c":"worker","msg":"command","id":"c-b69764e1ce00b9fd","name":"approval_answer","ok":true}
+{"ts":"2026-10-16T03:54:57.263Z","c":"worker","msg":"command","id":"c-baf75b2e0394927f","name":"pm_send","ok":true}
+{"ts":"2026-10-16T03:55:03.519Z","c":"worker","msg":"command","id":"c-83ef1ff38db195a9","name":"approval_answer","ok":true}
+{"ts":"2026-10-16T03:55:13.319Z","c":"worker","msg":"command","id":"c-b28d70eb9082be47","name":"thread_direct_send","ok":true}
+{"ts":"2026-10-16T03:55:24.220Z","c":"worker","msg":"command","id":"c-950567f2b27bff51","name":"session_stop","ok":true}
+{"ts":"2026-10-16T03:55:34.339Z","c":"worker","msg":"session launch","session":"e55ed1e0-7bc1-4bc0-be91-95c10bcb7660","tmux":"hntjvi1-e2e-e55ed1e0","resume":true,"ok":true}
+{"ts":"2026-10-16T03:55:34.341Z","c":"worker","msg":"resumed a stopped session for a queued delivery","session":"e55ed1e0-7bc1-4bc0-be91-95c10bcb7660","delivery":"dl-3188e3a8ece30eea"}
+{"ts":"2026-10-16T03:55:34.341Z","c":"worker","msg":"command","id":"c-06f319edd371801c","name":"pm_send","ok":true}
+{"ts":"2026-10-16T03:55:35.801Z","c":"worker","msg":"terminal answer","session":"e55ed1e0-7bc1-4bc0-be91-95c10bcb7660","kind":"dev_channel_warning","option":"I am using this for local development"}
+{"ts":"2026-10-16T03:55:35.801Z","c":"worker","msg":"command","id":"c-358b9911c8cbcd8b","name":"terminal_answer","ok":true}
+{"ts":"2026-10-16T03:55:36.201Z","c":"worker","msg":"bridge connected","session":"e55ed1e0-7bc1-4bc0-be91-95c10bcb7660","pid":65809}

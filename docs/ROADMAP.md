@@ -82,19 +82,19 @@ Phase 2 の部品（ワーカー常駐プログラム、ブリッジ、tmux 操�
 
 | 段階 | 内容 | 根拠 | 状態 |
 | --- | --- | --- | --- |
-| 3a 案件 PM 階層 | `role=pm` / `role=task` の起動と再開。PM 専用のローカルツール `task_create` `task_send` 等。子の `reply` を PM へ通知し、PM が `request_id` 付きで秘書へ報告。他案件の操作をデーモンで拒否。同じ実体フォルダで書込可能セッションを 1 つに直列化する安全側の実装を最初から入れる | Q2、Q3、Q15 | 実装済み。偽 Claude で試験済み（`pm.test.ts`、`phase3.test.ts`）。本物の Claude は未実施 |
-| 3b WebChat スレッド閲覧と直接介入 | ワーカー → 案件 → PM／子の階層表示。`POST /api/thread/send` → `thread_direct_send`。子への投稿と PM への通知を別々に追跡。取得できる履歴の範囲を画面で明示 | Q4 | 実装済み。偽 Claude で試験済み。履歴は Hannigan の記録のみ確認（会話記録の読み取りは単体試験と tmux 実機 1 回） |
+| 3a 案件 PM 階層 | `role=pm` / `role=task` の起動と再開。PM 専用のローカルツール `task_create` `task_send` 等。子の `reply` を PM へ通知し、PM が `request_id` 付きで秘書へ報告。他案件の操作をデーモンで拒否。同じ実体フォルダで書込可能セッションを 1 つに直列化する安全側の実装を最初から入れる | Q2、Q3、Q15 | 実装済み。偽 Claude で試験済み（`pm.test.ts`、`phase3.test.ts`）。本物の Claude で一巡を確認（2026-10-16） |
+| 3b WebChat スレッド閲覧と直接介入 | ワーカー → 案件 → PM／子の階層表示。`POST /api/thread/send` → `thread_direct_send`。子への投稿と PM への通知を別々に追跡。取得できる履歴の範囲を画面で明示 | Q4 | 実装済み。偽 Claude で試験済み。本物の Claude で PM スレッドへの直接投稿と会話記録からの履歴表示（`coverage=transcript`）を確認。子スレッドへの直接投稿は偽 Claude のみ |
 | 3c 会話分離と案件台帳 | WebChat の `conv_id` ごとに秘書セッションを起動・再開。`project_pm_send` で `request_id` を発行し、PM 報告を依頼元の会話にだけ返す。`project_status` と `work-items.jsonl` | Q6 | 実装済み。偽 Claude で試験済み |
 | 3d オフライン保留と FIFO 配送 | ワーカー停止中の依頼を `pending_offline` で保留。24 時間 TTL、受付順の配送、失効通知、二重配送の抑止。ワーカー常駐プログラムを止めて再現する | Q12〜Q14 | 実装済み。偽 Claude で試験済み（TTL 1 分の設定と保留ファイルの書き換えで失効を再現。24 時間の実経過は未実施） |
-| 3e 書込権の自動解放と異常時復旧 | スパイク S1 の結果で方式を確定。成立すれば `held → release_pending → released` と `resource_unknown` を実装。不成立なら 3a の直列化に固定し、設計書の Q16/Q17 を縮退案に書き換える | Q16、Q17 | 実装済み（S1 成立。`held → release_pending → released` と `resource_unknown`）。単体試験と偽 Claude で試験済み、tmux の本物で 1 回確認 |
+| 3e 書込権の自動解放と異常時復旧 | スパイク S1 の結果で方式を確定。成立すれば `held → release_pending → released` と `resource_unknown` を実装。不成立なら 3a の直列化に固定し、設計書の Q16/Q17 を縮退案に書き換える | Q16、Q17 | 実装済み（S1 成立。`held → release_pending → released` と `resource_unknown`）。単体試験と偽 Claude で試験済み。本物の PM と子の書込権の受け渡しを一巡で確認 |
 | 設定移行 | hub v1 → v8 案、worker v1 → v2 案の移行と検証。Phase 2 のセッション台帳を `role=task` として引き継ぐ | 01 の 10 章 | 実装済み。単体試験済み |
-| 試験 | 偽 Claude の自動試験を新経路（PM 委任、直接介入、会話分離、保留と再配送、直列化）まで広げる。本物の Claude での一巡 | | 偽 Claude の自動試験は実装済み・全件通過。本物の Claude での一巡は未実施（`test/e2e-real.ts` は PM 経路に更新済み） |
+| 試験 | 偽 Claude の自動試験を新経路（PM 委任、直接介入、会話分離、保留と再配送、直列化）まで広げる。本物の Claude での一巡 | | 偽 Claude の自動試験は実装済み・全件通過。本物の Claude での一巡（`test/e2e-real.ts`、18 段階）は 2026-10-16 に全段階通過 |
 
 検証スパイク（実装の前に短期間で白黒をつける）
 - S1 書込経路の封じ込め: Claude Code のセッションを生かしたまま、Edit／Write／Bash と外部プロセスの書込を OS かツール権限の境界で止められるか。止められなければ Q16/Q17 は縮退案にする
 - S2 Claude Code 本体の中間発言とツール実行の取得: Mac 上のセッション記録から履歴を抽出できるか、遅延と秘密情報の除外を含めて確認する（Q4 の履歴表示の範囲を決める）
 
-出口条件（チェックは偽 Claude の自動試験で確認したもの。本物の Claude での確認は [phase3-e2e](verification/phase3-e2e/README.md) の 3 章）
+出口条件（チェックは偽 Claude の自動試験で確認したもの。本物の Claude で確認した範囲は [phase3-e2e](verification/phase3-e2e/README.md) の 3〜4 章）
 - [x] WebChat の 1 往復で、秘書が案件 PM に委任し、PM が直接実行か子への委任を選び、結果が元の会話に戻る
 - [x] WebChat から PM と子のスレッドに直接投稿でき、子への投稿が PM に通知される
 - [x] 別の WebChat 会話から同じ PM に依頼しても、報告が混ざらず依頼元にだけ戻る

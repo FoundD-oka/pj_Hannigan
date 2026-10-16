@@ -1,0 +1,49 @@
+{
+  "direct_send_enabled": true,
+  "workers": [
+    {
+      "worker": "local",
+      "display_name": "テスト Mac",
+      "connected": true,
+      "projects": [
+        {
+          "id": "e2e",
+          "description": "test project e2e",
+          "pm_enabled": true,
+          "pm": {
+            "session": "e55ed1e0-7bc1-4bc0-be91-95c10bcb7660",
+            "name": "e2e PM",
+            "role": "pm",
+            "state": "working",
+            "pm_session": null,
+            "updated_at": "2026-10-16T03:55:38.233Z"
+          },
+          "tasks": [
+            {
+              "session": "5e206f64-bbe5-4066-b852-661be640ab5c",
+              "name": "world.txt 作成",
+              "role": "task",
+              "state": "ready",
+              "pm_session": "e55ed1e0-7bc1-4bc0-be91-95c10bcb7660",
+              "updated_at": "2026-10-16T03:53:46.085Z"
+            }
+          ],
+          "other_sessions": []
+        }
+      ]
+    }
+  ],
+  "secretaries": [
+    {
+      "context_id": "conv-e2e",
+      "session": "d62b0a83-4be1-4173-a1ac-1fec78cee4ae",
+      "state": "working",
+      "last_used_at": "2026-10-16T03:55:43.166Z",
+      "waiting": 0
+    }
+  ],
+  "coverage": {
+    "local/e55ed1e0-7bc1-4bc0-be91-95c10bcb7660": "transcript",
+    "local/5e206f64-bbe5-4066-b852-661be640ab5c": "transcript"
+  }
+}

@@ -28,7 +28,7 @@ WebChat で統括秘書 Claude Code に依頼するだけで、複数の Mac 上
 
 ## 現状
 
-Phase 3（ローカル実地テスト）の実装まで済んだ。設計は 2026-10-16 に Q1〜Q17 のヒアリングで改訂した（[決定記録](docs/design/CHANGELOG.md)）。次は本物の Claude での一巡と、7 日間の日常運用。進み具合は [docs/ROADMAP.md](docs/ROADMAP.md) を参照。
+Phase 3（ローカル実地テスト）の実装と、本物の Claude での一巡まで済んだ。設計は 2026-10-16 に Q1〜Q17 のヒアリングで改訂した（[決定記録](docs/design/CHANGELOG.md)）。次は 7 日間の日常運用。進み具合は [docs/ROADMAP.md](docs/ROADMAP.md) を参照。
 
 | 項目 | 状態 |
 | --- | --- |
@@ -37,7 +37,7 @@ Phase 3（ローカル実地テスト）の実装まで済んだ。設計は 202
 | T12: チャネル経由のコマンド実行 | 完了。実行されない（[報告](docs/verification/t12-channel-command/README.md)） |
 | T11: Remote Control × CU 承認 | 実施済み。CU 承認はスマホに届かず端末にだけ出る。承認はセッション単位（[結果](docs/verification/t11-remote-control-cu/README.md)） |
 | ハブ、ワーカー常駐プログラム、WebChat（1 台構成） | 実装済み。偽 Claude での自動試験と本物の Claude での一巡を確認（[報告](docs/verification/phase2-e2e/README.md)） |
-| Phase 3: ローカル実地テスト（案件 PM 階層、スレッド直接介入、会話分離、オフライン保留、書込直列化） | 実装済み（偽 Claude での自動試験 124 件通過、本物の Claude での一巡は未実施。[報告](docs/verification/phase3-e2e/README.md)） |
+| Phase 3: ローカル実地テスト（案件 PM 階層、スレッド直接介入、会話分離、オフライン保留、書込直列化） | 実装済み。偽 Claude での自動試験 124 件と、本物の Claude での一巡 18 段階を通過（[報告](docs/verification/phase3-e2e/README.md)） |
 
 ## 使い方（Phase 3 の構成：同じ Mac でハブとワーカーを動かす）
 

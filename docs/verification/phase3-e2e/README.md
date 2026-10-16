@@ -2,21 +2,21 @@
 
 実施日: 2026-10-16（JST）
 実施者: Claude Code（自律実行）。人の操作はなし。WebChat の操作は試験コードが HTTP API で代行した
-環境: Mac mini（macOS 26.5.1、arm64）、Bun 1.3.9、tmux 3.8。Claude Code は偽物（`test/fake-claude.ts`）を使い、利用枠は使っていない
+環境: Mac mini（macOS 26.5.1、arm64）、Bun 1.3.9、tmux 3.8。自動試験は偽の Claude Code（`test/fake-claude.ts`）で利用枠を使わない。本物の Claude での一巡（3 章）は Claude Code v2.1.301 で行った
 
 ## 結論
 
 Phase 3 の出口条件 7 つのうち、日常運用の 1 つを除く 6 つを偽 Claude の自動試験で確認した。
 ハブ、ワーカー常駐プログラム、tmux は本物で、秘書・案件 PM・子の 3 役すべてを偽 Claude が演じる。試験は WebChat と同じ HTTP API だけで操作する。
-本物の Claude での一巡はまだ行っていない（3 章）。
+本物の Claude での一巡（`test/e2e-real.ts`、18 段階）も同日に行い、全段階を通過した（3 章）。秘書から PM への委任、PM の直接作業と子への委任、書込権の受け渡し、直接投稿、停止と再開を本物で確認した。
 
 | 出口条件 | 結果 | 根拠 |
 | --- | --- | --- |
-| WebChat の 1 往復で、秘書が案件 PM に委任し、PM が直接実行か子への委任を選び、結果が元の会話に戻る | 偽 Claude で達成 | `phase3.test.ts` の 1〜2 |
-| WebChat から PM と子のスレッドに直接投稿でき、子への投稿が PM に通知される | 偽 Claude で達成 | `phase3.test.ts` の 4、9 |
+| WebChat の 1 往復で、秘書が案件 PM に委任し、PM が直接実行か子への委任を選び、結果が元の会話に戻る | 偽 Claude と本物の Claude で達成 | `phase3.test.ts` の 1〜2、3 章の 1〜2 |
+| WebChat から PM と子のスレッドに直接投稿でき、子への投稿が PM に通知される | 偽 Claude で達成。PM への直接投稿は本物でも達成 | `phase3.test.ts` の 4、9、3 章の 4 |
 | 別の WebChat 会話から同じ PM に依頼しても、報告が混ざらず依頼元にだけ戻る | 偽 Claude で達成 | `phase3.test.ts` の 3 |
 | ワーカー停止中の依頼が保留され、再起動後に受付順で配送される。期限を過ぎた依頼は実行されず失効が通知される | 偽 Claude で達成 | `phase3.test.ts` の 6〜7、`hub-routing.test.ts` |
-| 同じ作業フォルダで PM と子が同時に書き込まない | 偽 Claude で達成 | `phase3.test.ts` の 5、`pm.test.ts` |
+| 同じ作業フォルダで PM と子が同時に書き込まない | 偽 Claude と本物の Claude で達成 | `phase3.test.ts` の 5、`pm.test.ts`、3 章の書込権の記録 |
 | 連続 7 日間、WebChat だけで日常の依頼を回せる | 未実施 | 本物の Claude での運用が必要 |
 | 偽 Claude の自動試験が上の経路を網羅して通る | 達成 | 2 章 |
 
@@ -65,19 +65,36 @@ bun test test/e2e-fake                     52 pass（5 ファイル、約 320 �
 
 合計 124 件。`bun test`（`package.json` の `test`）は単体と通し試験をまとめて実行する。
 
-本物の Claude での一巡は `bun test/e2e-real.ts <証拠の出力先> [--model <別名>] [--effort low]` で行う。利用枠を使うので、この作業では実行していない。
+本物の Claude での一巡は `bun test/e2e-real.ts <証拠の出力先> [--model <別名>] [--effort low]` で行う（利用枠を使う）。結果は 3 章。
 台本は Phase 3 の経路に合わせて書き直した。秘書が `project_pm_send` で PM に依頼し、PM の直接作業、子への委任、ツール承認の拒否、PM スレッドへの直接投稿、PM の停止と再開を順に試す。
 証拠には Phase 2 と同じもの（`events.jsonl`、`answers.log`、画面、ログ、`results.json`）に加えて、`sessions.jsonl`（PM・子・秘書の状態）、`leases.jsonl`（書込権と待ち）、`threads.json` を書き出す。
 
-## 3. 本物の Claude で残っている確認
+## 3. 本物の Claude Code での一巡（`test/e2e-real.ts`）
 
-- 本物の Claude での一巡（`test/e2e-real.ts`）。特に、本物の PM が秘書起点の依頼に `request_id` を付けて返信するか、子への委任を自分で選ぶか、直接投稿の通知を受けて子に指示を送り直さないか。偽 Claude はこれを台本どおりに行うだけなので、ここは本物でしか確かめられない
-- 連続 7 日間、WebChat だけで日常の依頼を回せること（出口条件 6）
-- tmux 上の本物の Claude Code での書込権フック。2026-10-16 に 1 回確認した（[S1 の「tmux 実機確認」](../phase3-spikes/S1-write-lease-enforcement.md)）。PM と子が同時に動く場面と、剥奪前から動くバックグラウンド処理の検出は本物では未確認
-- 会話記録（トランスクリプト）からの履歴表示。単体試験と S1 の実機確認で 1 回動いたが、`coverage=transcript` の表示を本物で通しては見ていない
+2026-10-16 12:51〜12:56 JST、Claude Code v2.1.301、秘書・PM・子はすべて `--effort low`。承認カードと端末の確認画面への回答は、試験コードが人の代わりに `POST /api/answer` で行った（[`evidence/answers.log`](evidence/answers.log)）。
+証拠は [`evidence/`](evidence/)（`events.jsonl` 185 件、`sessions.jsonl`、`leases.jsonl`、`threads.json`、tmux 画面 3 枚、ハブとワーカーのログ、`results.json`）。一時フォルダは `<tmp>`、ローカルのユーザー名は `<user>` に伏せた。
+
+| # | 段階 | 結果 | 本物で分かったこと |
+| --- | --- | --- | --- |
+| 1 | 秘書が会話の最初のメッセージで起動し、`project_pm_send` で PM に依頼。PM が hello.txt を自分で作り、`request_id` 付きで報告。秘書が同じ会話に返す | 通過 | 秘書は依頼文から `project_pm_send` を選んだ。PM は「小さい作業なので自分で」という指示どおり子を作らず、報告に `request_id` を付けた |
+| 2 | PM が `task_create` で子を作り、world.txt を委任。子の報告は PM に届き（`routed=false`）、PM が元の `request_id` で秘書に報告 | 通過 | PM は子への指示文を自分で組み立て（`cat` と `od -c` で確認する手順まで含めた）、子の報告を要約して元の会話に返した。秘書には子の報告が直接届いていない |
+| 3 | PM の Bash 承認を WebChat から拒否 | 通過 | ファイルは作られず、PM は拒否をそのまま報告した |
+| 4 | WebChat から PM スレッドへ直接投稿（合言葉） | 通過 | 返事は PM スレッドに残り（`origin=user_direct`、`routed=false`）、秘書には配送されなかった |
+| 5 | PM を停止し、次の依頼で再開。合言葉を答える | 通過 | 再開後も履歴とチャネル登録が残り、再開した PM が `request_id` 付きで報告した |
+
+書込権（`leases.jsonl`）は設計どおりに受け渡された。PM が `held`（granted）→ 作業が終わって `release_pending`（owner_idle）→ 子が `workspace_busy` で待つ → PM が `released`（verified_idle）→ 子が `held` → 子が報告して `released` → PM が `held` を取り直す、の順で、同じフォルダを書込可能なセッションは常に 1 つだった。PM の停止時は `release_pending`（owner_stopped）になり、再開で `held`（reacquired）に戻った。
+履歴表示は `source=transcript` の項目（発言、ツール要約、ツール結果、チャネル受信、直接投稿）が 52 件届き、`coverage=transcript` で表示できた。
+承認カードは 9 枚（フォルダの信頼 2、開発用チャネルの確認 4、Write 2、Bash 1）で、全部 WebChat の API から答えた。開発用チャネルの確認は PM の再開のたびに出る。
+
+## 4. 本物の Claude で残っている確認
+
+- 連続 7 日間、WebChat だけで日常の依頼を回せること（出口条件 6）。`bun scripts/dev-setup.ts` と `scripts/start.sh` で `~/.hannigan` に常設の構成を作って使う
+- 子スレッドへの直接投稿と PM への通知（3 章では PM スレッドへの投稿だけ試した）
+- 別の会話から同じ PM へ依頼したときの分離と、ワーカー停止中の保留と再配送（偽 Claude でのみ確認）
+- 剥奪前から動くバックグラウンド処理の検出。3 章では PM と子が順番に書いたので `resource_unknown` は出ていない
 - 24 時間の期限の実経過。試験は期限 1 分の設定と保留ファイルの書き換えで再現した
 
-## 4. この作業で直した不具合
+## 5. この作業で直した不具合
 
 | 不具合 | 原因 | 修正 | 確認 |
 | --- | --- | --- | --- |
