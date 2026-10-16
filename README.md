@@ -24,7 +24,7 @@ WebChat で統括秘書 Claude Code に依頼するだけで、複数の Mac 上
 
 実装の順序は「ローカル実地テスト → VPS → Discord」。ハブも手元の Mac で動かして新設計を使い込み、成立してから VPS に移す。
 
-詳細は [docs/design/00-architecture.md](docs/design/00-architecture.md)、進め方は [docs/ROADMAP.md](docs/ROADMAP.md)。
+詳細は [docs/design/00-architecture.md](docs/design/00-architecture.md)、進め方は [docs/ROADMAP.md](docs/ROADMAP.md)、画面の使い方は [docs/manual/README.md](docs/manual/README.md)（スクリーンショット付き）。
 
 ## 現状
 
