@@ -1,0 +1,461 @@
+<!doctype html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Hannigan</title>
+<style>
+  :root {
+    --bg:#f5f5f2; --fg:#1d1d1b; --muted:#6b6b66; --card:#fff; --line:#dcdcd6;
+    --me:#dfe9ff; --sec:#ffffff; --wrk:#eef6ee; --warn:#fff3d1; --ok:#1b7f3b; --ng:#b3261e; --accent:#2f5bd3; --sel:#e8eefc;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root { --bg:#141413; --fg:#ecece8; --muted:#9a9a94; --card:#1f1f1d; --line:#34342f; --me:#1e2e4c; --sec:#1f1f1d; --wrk:#1c2a1d; --warn:#3a3118; --ok:#5cc27a; --ng:#ef7b72; --accent:#8aa8ff; --sel:#25304a; }
+  }
+  * { box-sizing:border-box; }
+  body { margin:0; background:var(--bg); color:var(--fg); font:15px/1.55 -apple-system, BlinkMacSystemFont, "Hiragino Sans", system-ui, sans-serif; }
+  header { position:sticky; top:0; z-index:5; background:var(--bg); border-bottom:1px solid var(--line); padding:8px 16px; display:flex; gap:10px; align-items:center; flex-wrap:wrap; }
+  header b { font-size:16px; }
+  #conn { font-size:12px; color:var(--muted); margin-right:auto; }
+  #pending { display:none; font-size:13px; padding:4px 10px; border-radius:999px; background:var(--warn); border:1px solid var(--line); cursor:pointer; }
+  button { font:inherit; font-size:14px; padding:6px 12px; border-radius:6px; border:1px solid var(--line); background:var(--card); color:var(--fg); cursor:pointer; }
+  button:disabled { opacity:.5; cursor:default; }
+  select { font:inherit; font-size:13px; padding:4px 6px; border-radius:6px; border:1px solid var(--line); background:var(--card); color:var(--fg); max-width:200px; }
+  .layout { display:flex; max-width:1240px; margin:0 auto; }
+  main { flex:1; min-width:0; padding:12px 16px 160px; }
+  aside { width:360px; flex:none; border-left:1px solid var(--line); padding:12px 16px 120px; position:sticky; top:49px; height:calc(100vh - 49px); overflow:auto; }
+  @media (max-width: 900px) {
+    aside { display:none; position:fixed; inset:49px 0 0 0; width:auto; background:var(--bg); z-index:4; border:none; }
+    aside.open { display:block; }
+  }
+  @media (min-width: 901px) { #panelBtn { display:none; } }
+  .ev { margin:8px 0; padding:8px 12px; border-radius:10px; background:var(--card); border:1px solid var(--line); white-space:pre-wrap; word-break:break-word; }
+  .user { background:var(--me); margin-left:12%; }
+  .secretary { background:var(--sec); margin-right:12%; }
+  .worker { background:var(--wrk); margin-right:12%; font-size:14px; }
+  .worker summary { cursor:pointer; color:var(--muted); font-size:12px; }
+  .approval { background:var(--warn); }
+  .approval.closed { opacity:.6; }
+  .approval pre { margin:6px 0 0; font-size:12px; white-space:pre-wrap; max-height:220px; overflow:auto; }
+  .sys { font-size:12px; color:var(--muted); background:transparent; border:none; padding:1px 2px; margin:2px 0; }
+  .sys.error { color:var(--ng); }
+  .meta { font-size:11px; color:var(--muted); margin-top:4px; }
+  .label { font-size:12px; font-weight:600; margin-bottom:2px; }
+  .btns { display:flex; gap:8px; margin-top:8px; flex-wrap:wrap; }
+  .allow { border-color:var(--ok); color:var(--ok); } .deny { border-color:var(--ng); color:var(--ng); }
+  footer { position:fixed; bottom:0; left:0; right:0; z-index:6; background:var(--bg); border-top:1px solid var(--line); padding:8px 16px; }
+  footer form { display:flex; gap:8px; max-width:1240px; margin:0 auto; }
+  #target { max-width:1240px; margin:0 auto 4px; font-size:12px; color:var(--muted); }
+  textarea { flex:1; font:inherit; min-height:46px; max-height:40vh; padding:8px; border-radius:8px; border:1px solid var(--line); background:var(--card); color:var(--fg); resize:vertical; }
+  aside h3 { font-size:13px; margin:16px 0 6px; color:var(--muted); font-weight:600; }
+  .wk { border:1px solid var(--line); border-radius:10px; padding:8px 10px; margin:8px 0; background:var(--card); }
+  .wk .head { display:flex; gap:6px; align-items:center; }
+  .dot { width:8px; height:8px; border-radius:50%; background:var(--ng); flex:none; }
+  .dot.on { background:var(--ok); }
+  .role { font-size:12px; color:var(--muted); }
+  .proj { margin-top:6px; font-size:13px; font-weight:600; }
+  .row { border-top:1px dashed var(--line); margin-top:4px; padding:4px 4px 4px 0; font-size:13px; cursor:pointer; border-radius:6px; }
+  .row:hover, .row.sel { background:var(--sel); }
+  .row.task { margin-left:16px; }
+  .row .btns { margin-top:4px; } .row .btns button { font-size:12px; padding:2px 8px; }
+  .st { font-size:11px; padding:1px 6px; border-radius:999px; border:1px solid var(--line); margin-left:4px; white-space:nowrap; }
+  .st.working, .st.starting { color:var(--accent); } .st.awaiting_approval, .st.awaiting_terminal { color:#b07600; } .st.failed, .st.exited { color:var(--ng); }
+  .tag { font-size:11px; color:var(--muted); border:1px solid var(--line); border-radius:4px; padding:0 4px; margin-right:4px; }
+  .alert { background:var(--warn); border:1px solid var(--ng); color:var(--fg); border-radius:8px; padding:6px 10px; margin:6px 0; font-size:13px; }
+  .alert b { color:var(--ng); }
+  .oq { border:1px solid var(--line); border-radius:8px; padding:6px 8px; margin:6px 0; font-size:12px; background:var(--card); }
+  .thead { position:sticky; top:49px; background:var(--bg); padding:6px 0 8px; border-bottom:1px solid var(--line); z-index:3; }
+  .thead .title { font-weight:600; }
+  .dstate { font-size:12px; margin-top:4px; }
+  .dstate .bad { color:var(--ng); } .dstate .good { color:var(--ok); } .dstate .wait { color:#b07600; }
+  .entry { background:var(--wrk); margin-right:12%; font-size:14px; }
+  .warnline { color:var(--ng); }
+</style>
+</head>
+<body>
+<header>
+  <b>Hannigan</b>
+  <span id="conn">未接続</span>
+  <span id="pending" title="未回答の承認へ移動"></span>
+  <select id="convSel" title="会話の切り替え"></select>
+  <button id="newConv" type="button">新しい会話</button>
+  <button id="panelBtn" type="button">スレッド</button>
+</header>
+<div class="layout">
+  <main>
+    <div id="log"></div>
+    <div id="thread" style="display:none"></div>
+  </main>
+  <aside id="panel">
+    <div id="alerts"></div>
+    <h3>保留中の依頼</h3><div id="offline"><div class="role">なし</div></div>
+    <h3>スレッド（ワーカー → 案件 → PM／子）</h3><div id="threads"></div>
+    <h3>秘書（会話ごと）</h3><div id="secretaries"></div>
+  </aside>
+</div>
+<footer>
+  <div id="target"></div>
+  <form id="f"><textarea id="t" placeholder="秘書への指示（⌘Enter で送信）"></textarea><button>送信</button></form>
+</footer>
+<script>
+const hp = new URLSearchParams(location.hash.slice(1));
+const store = { get(k){ try { return localStorage.getItem(k) } catch { return null } }, set(k,v){ try { localStorage.setItem(k,v) } catch {} } };
+let token = hp.get('token') || store.get('hn_token');
+if (hp.get('token')) { store.set('hn_token', token); history.replaceState(null, '', location.pathname); }
+
+const $ = id => document.getElementById(id);
+const logEl = $('log'), threadEl = $('thread'), connEl = $('conn'), pendingEl = $('pending'), convSel = $('convSel');
+const CONV_RE = /^[A-Za-z0-9_-]{1,64}$/;
+let lastSeq = 0, es = null;
+let state = { workers: [], approvals: [], threads: [], secretaries: [], offline_requests: [], leases: [], settings: {} };
+const events = []; // everything received over SSE (bounded)
+const openApprovals = new Set();
+const closedApprovals = new Map(); // approval_id -> closed event
+let view = { mode: 'chat' }; // or { mode:'thread', worker, session }
+
+// ------------------------------------------------------------ conversations
+function newConvId() { return 'c' + new Date().toISOString().slice(0,10).replace(/-/g,'') + '-' + Math.random().toString(36).slice(2, 8); }
+let convs = []; try { convs = JSON.parse(store.get('hn_convs') || '[]').filter(c => CONV_RE.test(c)); } catch { convs = []; }
+let conv = store.get('hn_conv');
+if (!conv || !CONV_RE.test(conv)) conv = convs[0] || newConvId();
+function addConv(c) { if (CONV_RE.test(c) && !convs.includes(c)) { convs.unshift(c); store.set('hn_convs', JSON.stringify(convs.slice(0, 100))); renderConvSel(); } }
+function renderConvSel() {
+  convSel.textContent = '';
+  for (const c of convs) { const o = document.createElement('option'); o.value = c; o.textContent = '会話 ' + c; if (c === conv) o.selected = true; convSel.append(o); }
+}
+function switchConv(c) { conv = c; store.set('hn_conv', c); addConv(c); renderConvSel(); view = { mode: 'chat' }; showView(); }
+addConv(conv);
+convSel.onchange = () => switchConv(convSel.value);
+$('newConv').onclick = () => switchConv(newConvId());
+
+// ------------------------------------------------------------ helpers
+const t = ts => ts ? new Date(ts).toLocaleTimeString('ja-JP', { hour12:false }) : '';
+const dt = ts => ts ? new Date(ts).toLocaleString('ja-JP', { hour12:false, month:'numeric', day:'numeric', hour:'2-digit', minute:'2-digit' }) : '';
+const el = (tag, cls, text) => { const d = document.createElement(tag); if (cls) d.className = cls; if (text != null) d.textContent = text; return d; };
+const short = s => String(s || '').slice(0, 8);
+const STATE_JA = { starting:'起動中', awaiting_terminal:'端末の確認待ち', ready:'待機中', working:'作業中', awaiting_approval:'承認待ち', stopping:'停止中', stopped:'停止', exited:'終了', failed:'失敗' };
+const KIND_JA = { dev_channel_warning:'開発用チャネルの起動確認', workspace_trust:'フォルダの信頼確認', cu_app_approval:'Computer Use のアプリ承認', unknown:'端末の確認' };
+const ROLE_JA = { pm:'PM', task:'子', secretary:'秘書' };
+const DELIV_JA = {
+  accepted:'受付', queued:'Mac で配送待ち', worker_queued:'Mac で待機中', resource_wait:'資源待ち', delivered:'届けました（処理完了ではありません）',
+  pending_offline:'保留中（Mac オフライン）', dispatching:'配送中', expired:'失効（実行されていません）', delivery_unknown:'配送不明（自動再送しません）',
+  failed:'失敗', cancelled:'取消', not_applicable:'—',
+};
+const DELIV_CLS = { delivered:'good', expired:'bad', failed:'bad', delivery_unknown:'bad', cancelled:'bad', pending_offline:'wait', queued:'wait', worker_queued:'wait', resource_wait:'wait', dispatching:'wait' };
+const REASON_JA = { cu_busy:'Computer Use 使用中', workspace_busy:'作業フォルダ使用中', resource_unknown:'資源の状態が不明', ttl_elapsed:'期限切れ', deadline_expired:'期限切れ', worker_offline:'ワーカー未接続' };
+const wname = id => id === '_secretary' ? '秘書' : ((state.workers.find(w => w.worker === id) || {}).display_name || id);
+
+function api(path, body) {
+  return fetch(path, { method: body ? 'POST' : 'GET', headers: { 'content-type':'application/json', authorization:'Bearer ' + token }, body: body ? JSON.stringify(body) : undefined })
+    .then(r => r.json().then(j => Object.assign({ http: r.status }, j)).catch(() => ({ http: r.status, error: 'bad response' })));
+}
+function append(root, d) { const atBottom = innerHeight + scrollY >= document.body.scrollHeight - 80; root.append(d); if (atBottom) d.scrollIntoView({ block:'end' }); }
+function sys(root, text, err) { append(root, el('div', 'ev sys' + (err ? ' error' : ''), text)); }
+
+// ------------------------------------------------------------ chat view (current conversation only)
+function inChat(e) {
+  switch (e.kind) {
+    case 'user_message': case 'secretary_reply': return e.conv_id === conv;
+    case 'worker_report': return !!e.routed && e.context_id === conv;
+    case 'request_state': return e.context_id === conv && ['pending_offline','failed','delivery_unknown','delivered','worker_queued','resource_wait','cancelled'].includes(e.state);
+    case 'request_expired': return e.context_id === conv;
+    case 'notice': return !e.context_id || e.context_id === conv;
+    case 'session_state': return e.worker === '_secretary' ? e.context_id === conv && (['failed','exited'].includes(e.state)) : (['failed','exited','stopped'].includes(e.state) || !!e.detail);
+    case 'approval_open': case 'approval_closed': case 'approval_answered': case 'worker_link': case 'session_action': return true;
+  }
+  return false;
+}
+function renderChat(e) {
+  const L = logEl;
+  switch (e.kind) {
+    case 'user_message': { const d = el('div', 'ev user', e.text); d.append(el('div', 'meta', `${t(e.ts)}`)); append(L, d); break; }
+    case 'secretary_reply': { const d = el('div', 'ev secretary'); d.append(el('div', 'label', '秘書'), document.createTextNode(e.text), el('div', 'meta', t(e.ts))); append(L, d); break; }
+    case 'worker_report': {
+      const d = el('details', 'ev worker'); const s = el('summary', null, `${e.worker_name || e.worker} / ${e.project} の${ROLE_JA[e.role] || ''}からの報告 ${t(e.ts)}${e.request_id ? ' · ' + e.request_id : ''}`);
+      d.append(s, el('div', null, e.text), el('div', 'meta', `session ${short(e.session)}`)); append(L, d); break; }
+    case 'request_state': sys(L, `${t(e.ts)} 依頼 ${e.request_id} → ${wname(e.worker)} / ${e.project}: ${DELIV_JA[e.state] || e.state}${e.state === 'pending_offline' && e.expires_at ? `（期限 ${dt(e.expires_at)}）` : ''}${e.reason ? ` · ${REASON_JA[e.reason] || e.reason}` : ''}`, ['failed','delivery_unknown','cancelled'].includes(e.state)); break;
+    case 'request_expired': sys(L, `${t(e.ts)} 依頼 ${e.request_id || e.message_id} は期限 ${dt(e.expires_at)} までに届かず失効しました（実行されていません）`, true); break;
+    case 'approval_open': renderApproval(e); break;
+    case 'approval_closed': {
+      const card = $('ap-' + e.approval_id);
+      if (card) { card.classList.add('closed'); const b = card.querySelector('.btns'); if (b) b.textContent = closedText(e); }
+      break; }
+    case 'approval_answered': { const card = $('ap-' + e.approval_id); if (card && !e.ok) { const b = card.querySelector('.btns'); if (b) b.textContent = '送信できませんでした: ' + (e.error || ''); } break; }
+    case 'session_state': sys(L, `${t(e.ts)} ${wname(e.worker)} / ${e.worker === '_secretary' ? 'この会話の秘書' : e.project}: ${STATE_JA[e.state] || e.state}${e.detail ? '\n' + e.detail : ''}`, e.state === 'failed'); break;
+    case 'worker_link': sys(L, `${t(e.ts)} ${wname(e.worker)}: ${e.connected ? '接続' : '切断'}`, !e.connected); break;
+    case 'notice': sys(L, `${t(e.ts)} ${e.text}`, e.level === 'error'); break;
+    case 'session_action': sys(L, `${t(e.ts)} ${e.action === 'interrupt' ? 'Esc 送信' : '停止要求'}: ${wname(e.worker)} ${short(e.session)} ${e.ok ? '' : '（失敗）'}`); break;
+  }
+}
+function closedText(e) {
+  const by = { webchat:'WebChat で回答', terminal:'端末で回答', resolved_elsewhere:'端末側で解決', answered:'回答済み', gone:'画面から消えた', ended:'セッション終了', session_ended:'セッション終了', stale:'期限切れ', auto_accept:'自動承認' }[e.by] || e.by;
+  return `閉じました（${by}${String(e.result).startsWith('webchat:') ? ' · ' + (e.result.endsWith('allow') ? '許可' : '拒否') : ''}）`;
+}
+function renderApproval(e) {
+  const d = el('div', 'ev approval'); d.id = 'ap-' + e.approval_id;
+  const src = e.worker === '_secretary' ? `秘書${e.context_id ? '（会話 ' + e.context_id + '）' : ''}` : `${e.worker_name || e.worker} / ${e.project}`;
+  const head = e.type === 'tool' ? `承認: ${e.title}` : `${KIND_JA[e.prompt_kind] || '端末の確認'}: ${e.title}`;
+  d.append(el('div', 'label', src), el('div', null, head));
+  if (e.body) d.append(el('pre', null, e.body));
+  const b = el('div', 'btns');
+  const closed = closedApprovals.get(e.approval_id);
+  if (closed) { d.classList.add('closed'); b.textContent = closedText(closed); }
+  else {
+    const choose = (choice, label) => { b.textContent = `送信中: ${label}`; api('/api/answer', { approval_id: e.approval_id, choice }).then(r => { b.textContent = r.ok ? `送信しました: ${label}` : `送信できませんでした: ${r.error || ''} ${r.message || ''}`; }); };
+    if (e.type === 'tool') {
+      const a = el('button', 'allow', '許可'); a.onclick = () => choose('allow', '許可');
+      const n = el('button', 'deny', '拒否'); n.onclick = () => choose('deny', '拒否');
+      b.append(a, n);
+    } else e.options.forEach((o, i) => { const x = el('button', null, o); x.onclick = () => choose(i, o); b.append(x); });
+  }
+  d.append(b, el('div', 'meta', `${t(e.ts)} · ${e.approval_id}`));
+  append(logEl, d);
+}
+function updatePending() {
+  pendingEl.style.display = openApprovals.size ? 'inline-block' : 'none';
+  pendingEl.textContent = `未回答の承認 ${openApprovals.size}`;
+}
+pendingEl.onclick = () => {
+  if (view.mode !== 'chat') { view = { mode: 'chat' }; showView(); }
+  const id = [...openApprovals][0]; const c = id && $('ap-' + id); if (c) c.scrollIntoView({ block:'center' });
+};
+
+// ------------------------------------------------------------ thread view
+function inThread(e, worker, session) {
+  if (e.worker !== worker) return false;
+  if (e.kind === 'task_event') return e.pm_session === session || e.task_session === session;
+  if (e.kind === 'user_direct_notice') return e.session === session || e.pm_session === session;
+  return ['user_direct','direct_delivery_state','worker_report','report_unrouted','thread_entry','session_state','approval_open','delivery','offline_request_state','request_expired','resource_wait','session_action'].includes(e.kind) && e.session === session;
+}
+let th = null; // { worker, session, seqs:Set, nextBefore, coverage, list }
+function findSession(worker, session) {
+  const w = state.workers.find(x => x.worker === worker); return w && (w.sessions || []).find(s => s.key === session);
+}
+function openThread(worker, session) {
+  view = { mode: 'thread', worker, session }; showView();
+  if ($('panel').classList.contains('open')) $('panel').classList.remove('open');
+}
+function renderThreadShell() {
+  threadEl.textContent = '';
+  const s = findSession(view.worker, view.session) || {};
+  const head = el('div', 'thead');
+  const back = el('button', null, '← 会話へ戻る'); back.onclick = () => { view = { mode: 'chat' }; showView(); };
+  const title = el('div', 'title', `${wname(view.worker)} / ${s.project || '?'} · ${ROLE_JA[s.role] || s.role || ''} ${short(view.session)}`);
+  const st = el('span', 'st ' + (s.state || ''), STATE_JA[s.state] || s.state || '不明'); title.append(st);
+  const cov = el('div', 'role', '');
+  cov.id = 'coverage';
+  const more = el('button', null, 'さらに古い履歴'); more.id = 'more'; more.style.display = 'none';
+  more.onclick = () => loadHistory(true);
+  head.append(back, title, cov);
+  if (s.role === 'task' && s.pm_session) head.append(el('div', 'role', `所属 PM: ${short(s.pm_session)}（直接投稿は PM にも通知されます）`));
+  if (s.role === 'task' && !s.pm_session) head.append(el('div', 'role warnline', 'この子には PM がありません。直接投稿はできません。'));
+  threadEl.append(head, more);
+  const list = el('div'); list.id = 'tlist'; threadEl.append(list);
+  th = { worker: view.worker, session: view.session, seqs: new Set(), nextBefore: null, list };
+  loadHistory(false);
+}
+function setCoverage(c) {
+  const d = $('coverage'); if (!d) return;
+  d.textContent = c === 'transcript' ? '表示範囲: Claude Code の会話記録（公開可能な発言・ツール要約）＋ Hannigan の記録'
+    : c === 'partial' ? '表示範囲: Claude Code の会話記録の一部（未検証の版のため欠ける可能性あり）＋ Hannigan の記録'
+    : c === 'unavailable' ? '表示範囲: Claude Code の会話記録は見つかりませんでした。Hannigan が観測したもの（直接投稿・報告・状態・承認・配送）のみです'
+    : '表示範囲: Hannigan が観測したもの（直接投稿・報告・状態・承認・配送）のみ。途中の発言やツール実行は含みません';
+}
+function loadHistory(older) {
+  const cur = th; if (!cur) return;
+  const q = `/api/thread/history?worker=${encodeURIComponent(cur.worker)}&session=${encodeURIComponent(cur.session)}&limit=50${older && cur.nextBefore ? '&before=' + cur.nextBefore : ''}`;
+  api(q).then(r => {
+    if (th !== cur) return;
+    if (!r.items) { cur.list.append(el('div', 'ev sys error', '履歴を読めませんでした: ' + (r.error || r.http))); return; }
+    setCoverage(r.coverage);
+    cur.nextBefore = r.next_before; $('more').style.display = r.has_more ? 'inline-block' : 'none';
+    const frag = document.createDocumentFragment();
+    for (const e of r.items) if (!cur.seqs.has(e.seq)) { cur.seqs.add(e.seq); const d = threadItem(e); if (d) frag.append(d); }
+    if (older) cur.list.prepend(frag); else { cur.list.append(frag); scrollTo(0, document.body.scrollHeight); }
+    // delivery states may be older or newer than the posts: apply all known ones
+    for (const e of [...r.items, ...events]) applyDeliveryState(e);
+  });
+}
+function threadItem(e) {
+  switch (e.kind) {
+    case 'user_direct': {
+      const d = el('div', 'ev user'); d.append(el('div', 'label', 'あなた（直接投稿）'), document.createTextNode(e.text));
+      const ds = el('div', 'dstate'); ds.id = 'dd-' + e.msg_id; ds.dataset.role = e.target_role || ''; d.append(ds, el('div', 'meta', `${t(e.ts)} · ${e.msg_id}`));
+      setTimeout(() => paintDelivery(e.msg_id, { target_delivery: 'accepted', pm_notice_delivery: e.target_role === 'task' ? 'accepted' : 'not_applicable' }, true), 0);
+      return d; }
+    case 'worker_report': {
+      const d = el('div', 'ev worker'); d.append(el('div', 'label', `${ROLE_JA[e.role] || ''}の返信${e.origin === 'user_direct' ? '（直接投稿への返信）' : e.request_id ? ' · 依頼 ' + e.request_id : ''}`), document.createTextNode(e.text), el('div', 'meta', t(e.ts) + (e.routed ? ' · 秘書へ転送済み' : ''))); return d; }
+    case 'thread_entry': {
+      const d = el('div', 'ev entry'); d.append(el('div', 'label', `${{ assistant_message:'発言', tool_summary:'ツール', report:'報告', user_direct:'直接投稿' }[e.entry_kind] || e.entry_kind}`), document.createTextNode(e.text || ''), el('div', 'meta', `${t(e.ts)} · ${e.source}`)); return d; }
+    case 'report_unrouted': return el('div', 'ev sys error', `${t(e.ts)} 依頼元が特定できない報告です（${e.reason}）。秘書には送っていません。要確認`);
+    case 'task_event': return el('div', 'ev sys', `${t(e.ts)} PM → 子 ${short(e.task_session)}: ${{ created:'作成', sent:'指示', reported:'報告' }[e.action] || e.action}${e.text ? '\n' + e.text : ''}`);
+    case 'session_state': return el('div', 'ev sys' + (e.state === 'failed' ? ' error' : ''), `${t(e.ts)} 状態: ${STATE_JA[e.state] || e.state}${e.detail ? '\n' + e.detail : ''}`);
+    case 'approval_open': return el('div', 'ev sys', `${t(e.ts)} ${e.type === 'tool' ? '承認待ち' : '端末の確認'}: ${e.title}（会話画面の承認カードで回答）`);
+    case 'approval_closed': return el('div', 'ev sys', `${t(e.ts)} ${closedText(e)}`);
+    case 'resource_wait': return el('div', 'ev sys', `${t(e.ts)} 資源待ち: ${REASON_JA[e.reason] || e.reason}`);
+    case 'user_direct_notice': return el('div', 'ev sys', `${t(e.ts)} PM への通知（${e.message_id}）: ${DELIV_JA[e.status] || e.status}`);
+    case 'session_action': return el('div', 'ev sys', `${t(e.ts)} ${e.action === 'interrupt' ? 'Esc 送信' : '停止要求'}${e.ok ? '' : '（失敗）'}`);
+  }
+  return null; // direct_delivery_state / delivery / offline_request_state update the post they belong to
+}
+const directState = new Map(); // msg_id -> { target_delivery, pm_notice_delivery, expires_at, reason }
+function applyDeliveryState(e) {
+  const id = e.message_id; if (!id) return;
+  const cur = directState.get(id) || {};
+  if (e.kind === 'direct_delivery_state') Object.assign(cur, { target_delivery: e.target_delivery, pm_notice_delivery: e.pm_notice_delivery, reason: e.reason, expires_at: e.expires_at || cur.expires_at });
+  else if (e.kind === 'offline_request_state') Object.assign(cur, { target_delivery: e.state === 'worker_queued' ? 'queued' : e.state, expires_at: e.expires_at, reason: e.reason });
+  else if (e.kind === 'delivery') Object.assign(cur, { target_delivery: e.status, reason: e.reason });
+  else if (e.kind === 'request_expired') Object.assign(cur, { target_delivery: 'expired', expires_at: e.expires_at });
+  else if (e.kind === 'user_direct_notice') Object.assign(cur, { pm_notice_delivery: e.status });
+  else return;
+  directState.set(id, cur); paintDelivery(id, cur);
+}
+function paintDelivery(id, st, onlyIfEmpty) {
+  const d = $('dd-' + id); if (!d) return;
+  if (onlyIfEmpty) { if (directState.has(id)) st = directState.get(id); }
+  d.textContent = '';
+  const part = (label, v) => { const s = el('span', DELIV_CLS[v] || '', `${label}: ${DELIV_JA[v] || v || '—'}`); d.append(s); };
+  part('配送', st.target_delivery);
+  if (d.dataset.role === 'task') { d.append(document.createTextNode(' / ')); const pn = st.pm_notice_delivery; part('PM 通知', pn); if (pn && !['delivered','not_applicable','failed','expired','cancelled'].includes(pn)) d.append(el('span', 'wait', '（PM 通知待ち）')); }
+  if (st.target_delivery === 'pending_offline' && st.expires_at) d.append(el('div', 'wait', `Mac 復帰後に配送します。期限 ${dt(st.expires_at)}（過ぎたら実行されません）`));
+  if (st.reason) d.append(el('div', 'role', `理由: ${REASON_JA[st.reason] || st.reason}`));
+}
+
+// ------------------------------------------------------------ SSE dispatch
+function onEvent(e) {
+  if (e.seq <= lastSeq) return; lastSeq = e.seq;
+  events.push(e); if (events.length > 5000) events.splice(0, events.length - 5000);
+  if (e.kind === 'user_message') addConv(e.conv_id);
+  if (e.kind === 'approval_open') { openApprovals.add(e.approval_id); updatePending(); }
+  if (e.kind === 'approval_closed') { closedApprovals.set(e.approval_id, e); openApprovals.delete(e.approval_id); updatePending(); }
+  if (view.mode === 'chat' && inChat(e)) renderChat(e);
+  if (view.mode === 'thread' && th && inThread(e, th.worker, th.session) && !th.seqs.has(e.seq)) { th.seqs.add(e.seq); const d = threadItem(e); if (d) append(th.list, d); }
+  applyDeliveryState(e);
+  if (['session_state','worker_link','inventory','offline_request_state','request_expired','resource_lease_state','secretary_context','secretary_idle_stop','direct_delivery_state','request_state'].includes(e.kind)) refreshState();
+}
+
+function showView() {
+  const chat = view.mode === 'chat';
+  logEl.style.display = chat ? '' : 'none'; threadEl.style.display = chat ? 'none' : '';
+  const ta = $('t');
+  if (chat) {
+    th = null; logEl.textContent = '';
+    for (const e of events) if (inChat(e)) renderChat(e);
+    $('target').textContent = `宛先: 秘書（会話 ${conv}）`;
+    ta.placeholder = '秘書への指示（⌘Enter で送信）'; ta.disabled = false;
+    scrollTo(0, document.body.scrollHeight);
+  } else {
+    renderThreadShell();
+    const s = findSession(view.worker, view.session) || {};
+    const can = state.settings.direct_send !== false && (s.role === 'pm' || (s.role === 'task' && s.pm_session));
+    $('target').textContent = can ? `宛先: ${ROLE_JA[s.role]} ${short(view.session)} へ直接投稿（秘書は介しません）` : '直接投稿できないスレッドです（閲覧のみ）';
+    ta.placeholder = can ? 'このスレッドへの直接投稿（⌘Enter で送信）' : ''; ta.disabled = !can;
+  }
+  renderSide();
+}
+
+// ------------------------------------------------------------ side panel
+let stateTimer = null;
+function refreshState() { clearTimeout(stateTimer); stateTimer = setTimeout(loadState, 300); }
+function loadState() {
+  api('/api/state').then(s => {
+    if (!s || !s.workers) return; state = s;
+    const live = new Set(s.approvals.map(a => a.approval_id));
+    for (const id of [...openApprovals]) if (!live.has(id)) { openApprovals.delete(id); const c = $('ap-' + id); if (c) { c.classList.add('closed'); const b = c.querySelector('.btns'); if (b && b.querySelector('button')) b.textContent = '閉じました'; } }
+    updatePending(); renderSide();
+  });
+}
+function sessionButtons(worker, s) {
+  const b = el('div', 'btns');
+  if (['stopped','exited','failed'].includes(s.state)) return b;
+  const esc = el('button', null, 'Esc（中断）'); esc.title = '端末へ Esc を送る補助経路。どこまで実行されたかは画面で確認が必要';
+  esc.onclick = ev => { ev.stopPropagation(); api('/api/session/interrupt', { worker, session: s.session || s.key }); };
+  const stop = el('button', 'deny', '停止'); stop.onclick = ev => { ev.stopPropagation(); if (confirm('このセッションを終了します（後で再開できます）')) api('/api/session/stop', { worker, session: s.session || s.key }); };
+  b.append(esc, stop); return b;
+}
+function threadRow(worker, s, cls) {
+  const row = el('div', 'row ' + (cls || ''));
+  if (view.mode === 'thread' && view.worker === worker && view.session === s.session) row.classList.add('sel');
+  const top = el('div'); top.append(el('span', 'tag', ROLE_JA[s.role] || s.role), el('span', null, s.name || short(s.session)), el('span', 'st ' + s.state, STATE_JA[s.state] || s.state));
+  row.append(top, el('div', 'meta', short(s.session)), sessionButtons(worker, s));
+  row.onclick = () => openThread(worker, s.session);
+  return row;
+}
+function renderSide() {
+  // resource notices: resource_unknown stays until the resource reports another state
+  const alerts = $('alerts'); alerts.textContent = '';
+  for (const l of state.leases || []) {
+    if (l.state === 'resource_unknown' || l.recovery_status === 'manual_review_required') {
+      const a = el('div', 'alert'); a.append(el('b', null, '要確認 '), document.createTextNode(`${wname(l.worker)} の資源 ${l.resource_id} の状態が不明です（書込権 ${l.state}${l.reason ? ' · ' + l.reason : ''}${l.session ? ' · セッション ' + short(l.session) : ''}）。自動では解放しません。`));
+      alerts.append(a);
+    }
+  }
+  const off = $('offline'); off.textContent = '';
+  const oq = state.offline_requests || [];
+  if (!oq.length) off.append(el('div', 'role', state.settings.offline_queue ? 'なし' : 'なし（オフライン保留は無効）'));
+  for (const x of oq) {
+    const d = el('div', 'oq');
+    d.append(el('div', null, `${x.kind === 'pm_send' ? '秘書の依頼' : '直接投稿'} → ${wname(x.worker)} / ${x.project || ''}${x.session ? ' ' + short(x.session) : ''}`));
+    d.append(el('div', DELIV_CLS[x.state] ? 'dstate' : 'role', `${DELIV_JA[x.state] || x.state}${x.reason ? ' · ' + (REASON_JA[x.reason] || x.reason) : ''} · 期限 ${dt(x.expires_at)}`));
+    if (x.text_preview) d.append(el('div', 'meta', x.text_preview));
+    if (x.context_id) d.append(el('div', 'meta', '会話 ' + x.context_id));
+    if (x.state === 'pending_offline') { const c = el('button', 'deny', '取消'); c.style.fontSize = '12px'; c.onclick = () => { if (confirm('この保留中の依頼を取り消します（まだ配送されていません）')) api('/api/offline-requests/cancel', { operation_id: x.operation_id }).then(refreshState); }; d.append(c); }
+    off.append(d);
+  }
+  const tr = $('threads'); tr.textContent = '';
+  for (const w of state.threads || []) {
+    const box = el('div', 'wk'); const head = el('div', 'head');
+    head.append(el('span', 'dot' + (w.connected ? ' on' : '')), el('b', null, w.display_name), el('span', 'role', `(${w.worker})${w.connected ? '' : ' オフライン'}`));
+    box.append(head);
+    const ws = state.workers.find(x => x.worker === w.worker); if (ws && ws.role) box.append(el('div', 'role', ws.role));
+    for (const p of w.projects) {
+      box.append(el('div', 'proj', `${p.id}${p.pm_enabled ? '' : '（PM 無効）'}`));
+      if (p.pm) box.append(threadRow(w.worker, p.pm));
+      else if (p.pm_enabled) box.append(el('div', 'role', 'PM はまだ起動していません'));
+      for (const s of p.tasks) box.append(threadRow(w.worker, s, 'task'));
+      for (const s of p.other_sessions) box.append(threadRow(w.worker, s, ''));
+    }
+    tr.append(box);
+  }
+  if (!(state.threads || []).length) tr.append(el('div', 'role', 'ワーカーなし'));
+  const sec = $('secretaries'); sec.textContent = '';
+  for (const c of state.secretaries || []) {
+    const row = el('div', 'row' + (c.context_id === conv && view.mode === 'chat' ? ' sel' : ''));
+    const top = el('div'); top.append(el('span', 'tag', '秘書'), el('span', null, '会話 ' + c.context_id), el('span', 'st ' + (c.state || ''), c.state ? (STATE_JA[c.state] || c.state) : '未起動'));
+    row.append(top);
+    if (c.waiting) row.append(el('div', 'role', `空き待ち ${c.waiting} 件`));
+    if (c.session) row.append(sessionButtons('_secretary', { session: c.session, state: c.state || 'stopped' }));
+    row.onclick = () => switchConv(c.context_id);
+    sec.append(row);
+  }
+  if (!(state.secretaries || []).length) sec.append(el('div', 'role', 'まだありません（最初の発言で起動します）'));
+}
+$('panelBtn').onclick = () => $('panel').classList.toggle('open');
+
+// ------------------------------------------------------------ connection and input
+function connect() {
+  if (!token) { connEl.textContent = 'トークン未設定（URL の #token=… で開く）'; return; }
+  es = new EventSource(`/api/events?since=${lastSeq}&token=${encodeURIComponent(token)}`);
+  es.onopen = () => { connEl.textContent = '接続中'; loadState(); };
+  es.onmessage = m => { try { onEvent(JSON.parse(m.data)); } catch (err) { console.error(err); } };
+  es.onerror = () => { connEl.textContent = '再接続待ち'; if (es.readyState === 2) { es = null; setTimeout(connect, 3000); } };
+}
+
+const form = $('f'), ta = $('t');
+ta.addEventListener('keydown', ev => { if (ev.key === 'Enter' && (ev.metaKey || ev.ctrlKey)) { ev.preventDefault(); form.requestSubmit(); } });
+form.onsubmit = ev => {
+  ev.preventDefault(); const text = ta.value; if (!text.trim()) return;
+  const msg_id = 'm' + Date.now().toString(36) + Math.random().toString(36).slice(2, 6);
+  if (view.mode === 'thread') {
+    api('/api/thread/send', { worker: view.worker, session: view.session, msg_id, text }).then(r => {
+      if (r.status) { ta.value = ''; if (r.status !== 'duplicate_ignored') applyDeliveryState({ kind: 'direct_delivery_state', message_id: msg_id, target_delivery: r.target_delivery || r.status, pm_notice_delivery: r.pm_notice_delivery, expires_at: r.expires_at, reason: r.error }); }
+      else alert('送信できませんでした: ' + (r.message || r.error || JSON.stringify(r)));
+    });
+    return;
+  }
+  api('/api/send', { conv_id: conv, msg_id, text }).then(r => { if (r.status) ta.value = ''; else alert('送信できませんでした: ' + JSON.stringify(r)); });
+};
+renderConvSel(); showView(); connect();
+</script>
+</body>
+</html>

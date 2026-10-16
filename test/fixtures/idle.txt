@@ -1,0 +1,20 @@
+  - 公式computer-use
+    MCPのrequest_accessでテキストエディットの承認を取った。「TextEdit」「テキストエディット」の表示名だとアプリ索引（Spotlight）が不完全で見つからず、bundle ID
+    com.apple.TextEdit 指定で承認がおりた。
+  - open_applicationで前面に出し、cmd+Nで新規書類を開いて、typeで文字列を入力した。
+  - 入力後にスクリーンショットとzoomで、本文とウィンドウ名を目視確認した。
+  補足
+  - AppleScript、osascript、Bashは一切使ってないよ。
+  - 書類は未保存のまま（タイトルに「編集済み」表示）で残してある。
+  - アプリ名の解決が索引に依存してる点は、この環境だとbundle ID指定が安定ルートって覚えとくといいかも。
+⏺ Ran 3 stop hooks (ctrl+o to expand)
+  ⎿  Stop hook error: Failed with non-blocking status code: /bin/sh: /Users/<user>/Git/claudecode-monitor/hooks/claude-code-hook.sh: No such file or
+  directory
+✻ Churned for 56s · done 20:01
+────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────
+❯ 
+────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────
+  Fable 5.1 | /Users/<user>/Desktop/逃し/concierge_test | git:test/claude-channels-cu | ctx:93%remaining | 5h:62%(~22:10) | 7d:91%(~05:00) | session:CHCU-r1…
+  ⏸ manual mode on · ← for agents
+                                                                                                                      Stop hook error occurred · ctrl+o to see
+                                                                                                                                                           /rc
