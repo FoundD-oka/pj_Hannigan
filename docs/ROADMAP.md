@@ -7,8 +7,8 @@
 
 ```text
 Phase 0  検証            ── 完了（Channels × CU、同一 Mac 内）
-Phase 1  設計と追加検証   ── 設定スキーマ、ワーカー常駐プログラム、Remote Control × CU 承認
-Phase 2  1 台で動く MVP   ── ハブ + ワーカー常駐プログラム + 秘書、すべて同じ Mac
+Phase 1  設計と追加検証   ── 実施済み。設計書のレビューが利用者待ち
+Phase 2  1 台で動く MVP   ── 実施済み。出口条件 3 つを本物の Claude で確認、利用者の確認待ち
 Phase 3  複数 Mac         ── 接続型、ペアリング、承認の集約、端末画面の補助経路
 Phase 4  秘書と設定画面    ── 使い分けルール、設定画面、導入 CLI、launchd
 Phase 5  無人運用の硬化    ── 再接続、監視、ログ、自動試験、運用手順
@@ -23,38 +23,41 @@ Phase 6  OSS 公開         ── 文書、セキュリティ方針、CI、許�
 - [x] 検証用 WebChat チャネル（[prototype/webchat-test](../prototype/webchat-test/)）
 - [x] リポジトリ移植、MIT ライセンス、全体アーキテクチャ草案
 
-## Phase 1: 設計と追加検証
+## Phase 1: 設計と追加検証（実施済み・利用者の確認待ち）
 
 目的: 実装前に、設定の形と命令の形を固め、CU 承認を遠隔で扱う手段を確定する。
 
-| 項目 | 成果物 |
-| --- | --- |
-| 設定スキーマ | `docs/design/01-config-schema.md`（項目、型、保存場所、秘密情報の分離、ペアリング） |
-| ワーカー常駐プログラム | `docs/design/02-worker-daemon.md`（命令一覧、状態遷移、tmux 画面読み取りの仕様、再接続） |
-| ハブとワーカー間の通信 | `docs/design/03-hub-worker-protocol.md`（メッセージ形式、認証、再送と重複排除） |
-| T11: Remote Control × CU 承認 | 検証レポート。CU のアプリ承認がスマホに届くかを実測 |
-| T12: チャネル経由のコマンド | `/clear` などがチャネルから実行されるかの実測（たぶん不可の確認） |
+| 項目 | 成果物 | 状態 |
+| --- | --- | --- |
+| 設定スキーマ | [`docs/design/01-config-schema.md`](design/01-config-schema.md)（項目、型、保存場所、秘密情報の分離、ペアリング） | 作成済み・レビュー待ち |
+| ワーカー常駐プログラム | [`docs/design/02-worker-daemon.md`](design/02-worker-daemon.md)（命令一覧、状態遷移、tmux 画面読み取りの仕様、再接続） | 作成済み・レビュー待ち |
+| ハブとワーカー間の通信 | [`docs/design/03-hub-worker-protocol.md`](design/03-hub-worker-protocol.md)（メッセージ形式、認証、再送と重複排除） | 作成済み・レビュー待ち |
+| T11: Remote Control × CU 承認 | [結果](verification/t11-remote-control-cu/README.md) | 実施済み（2026-10-14）。届かない。CU 承認は補助経路で扱う |
+| T12: チャネル経由のコマンド | [検証レポート](verification/t12-channel-command/README.md)。`/clear` は実行されない | 完了 |
 
 出口条件
-- 3 つの設計書がレビュー済みで、設定項目に「コードに埋め込む値」が残っていない
-- T11 の結果で、Phase 3 の補助経路（端末画面の読み取り）が必要か不要かが決まっている
+- [ ] 3 つの設計書がレビュー済み（利用者のレビュー待ち）
+- [x] 設定項目に「コードに埋め込む値」が残っていない。利用者ごとの値はすべて `hub.json` と `worker.json` にあり、コードには既定値だけを置いた（01 の表に列挙）
+- [x] 補助経路（端末画面の読み取り）は必要と決定した。開発用チャネルの起動確認とフォルダの信頼確認は T11 の結果に関わらず端末にしか出ないため。T11 は CU 承認をこの経路で扱うかどうかだけを決める（Phase 2 で実装済みなので、どちらの結果でも追加の作業は小さい）
 
-## Phase 2: 1 台で動く MVP
+## Phase 2: 1 台で動く MVP（実施済み・利用者の確認待ち）
 
 目的: 同じ Mac の中で、WebChat → 秘書 → ワーカー → 結果 → WebChat の一巡を通す。
 
-| 項目 | 内容 |
-| --- | --- |
-| ハブ v0 | prototype を基に `hub/` を新設。秘書向けツール `workers_status` `session_create` `session_resume` `session_send` `session_stop` `session_interrupt` `reply` |
-| ワーカー常駐プログラム v0 | `worker/` を新設。localhost でハブへ接続。tmux での起動・再開・停止、結果の中継 |
-| ワーカーチャネル v0 | セッションごとに起動するチャネルサーバー。permission relay を宣言 |
-| WebChat UI v0 | 会話、承認の許可・拒否、停止ボタン、ワーカーとセッションの一覧 |
-| 試験 | 一巡の自動試験（送信から結果受領まで）。検証 T06/T07 相当の再接続試験 |
+| 項目 | 内容 | 状態 |
+| --- | --- | --- |
+| ハブ v0 | `hub/`。秘書向けツール `workers_status` `session_create` `session_resume` `session_send` `session_stop` `session_interrupt` `reply` | 実装済み |
+| ワーカー常駐プログラム v0 | `worker/`。localhost でハブへ接続。tmux での起動・再開・停止、結果の中継、outbox | 実装済み |
+| ワーカーチャネル v0 | `shared/bridge.ts`。セッションごとに起動するチャネルサーバー。permission relay を宣言。秘書と共通 | 実装済み |
+| WebChat UI v0 | `web/index.html`。会話、承認の許可・拒否、端末ダイアログの選択、停止と Esc、ワーカーとセッションの一覧 | 実装済み |
+| 試験 | 偽 Claude による一巡の自動試験 15 件（再接続、ハブ再起動、SSE 再生を含む）、単体試験 17 件、本物の Claude での一巡 | 実施済み（[報告](verification/phase2-e2e/README.md)） |
 
-出口条件
-- WebChat の 1 往復で、秘書がセッションを作って指示し、結果が同じ会話に戻る
-- 通常ツールの承認が WebChat から許可・拒否できる
-- セッションの再開で履歴とチャネル登録が維持される
+出口条件（[Phase 2 報告](verification/phase2-e2e/README.md)）
+- [x] WebChat の 1 往復で、秘書がセッションを作って指示し、結果が同じ会話に戻る
+- [x] 通常ツールの承認が WebChat から許可・拒否できる
+- [x] セッションの再開で履歴とチャネル登録が維持される
+
+前倒しで入れたもの: 端末ダイアログの承認カード（Phase 3 の補助経路の一部）、ワーカーの鍵による認証（Phase 3 のペアリングの前段）、ハブ再起動時の outbox 再送（Phase 3 の切断中の結果保持）。
 
 ## Phase 3: 複数 Mac
 
@@ -65,7 +68,7 @@ Phase 6  OSS 公開         ── 文書、セキュリティ方針、CI、許�
 | 接続型 | ワーカーからハブへの常時接続（WebSocket）。切断時の自動再接続と、切断中の結果の保持 |
 | ペアリング | ハブが一時コードを発行、ワーカーで `pair <code>`。以後は鍵で認証 |
 | 承認の集約 | 複数ワーカーの承認要求を WebChat に 1 画面で表示。request_id の衝突を防ぐ |
-| 補助経路 | tmux 画面の読み取りと選択キー送信（CU 承認、起動時警告、停止）。T11 の結果で範囲を決める |
+| 補助経路 | tmux 画面の読み取りと選択キー送信（CU 承認、起動時警告、停止）。T11 で CU 承認も対象と決まった |
 | 別ネットワーク試験 | 別端末・別ネットワークからの実測（Phase 0 で保留した項目） |
 
 出口条件

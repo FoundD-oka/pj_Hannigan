@@ -1,0 +1,22 @@
+{
+  "name": "hannigan",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "license": "MIT",
+  "scripts": {
+    "hub": "bun hub/hub.ts",
+    "worker": "bun worker/daemon.ts",
+    "dev-setup": "bun scripts/dev-setup.ts",
+    "test": "bun test test/unit test/e2e-fake",
+    "typecheck": "tsc --noEmit"
+  },
+  "dependencies": {
+    "@modelcontextprotocol/sdk": "1.32.1",
+    "zod": "4.6.7"
+  },
+  "devDependencies": {
+    "@types/bun": "1.3.9",
+    "typescript": "7.0.2"
+  }
+}

@@ -1,0 +1,30 @@
+{"ts":"2026-10-12T18:54:22.548Z","c":"worker","msg":"worker started","worker":"local","local":"127.0.0.1:22212","projects":1}
+{"ts":"2026-10-12T18:54:22.558Z","c":"worker","msg":"connected to hub","hub":"ws://127.0.0.1:22211/ws/worker","resent":0}
+{"ts":"2026-10-12T18:54:31.784Z","c":"worker","msg":"command","id":"c-20a081ff12fc5c9b","name":"list","ok":true}
+{"ts":"2026-10-12T18:54:33.850Z","c":"worker","msg":"session launch","session":"3c9a5daf-c59a-45c4-84f4-d275a8a353f8","tmux":"hntjew7-e2e-3c9a5daf","resume":false,"ok":true}
+{"ts":"2026-10-12T18:54:33.851Z","c":"worker","msg":"command","id":"c-fec1f3bc66b39c61","name":"session_create","ok":true}
+{"ts":"2026-10-12T18:54:35.118Z","c":"worker","msg":"terminal answer","session":"3c9a5daf-c59a-45c4-84f4-d275a8a353f8","kind":"workspace_trust","option":"Yes, I trust this folder"}
+{"ts":"2026-10-12T18:54:35.118Z","c":"worker","msg":"command","id":"c-e470432a64f6c10d","name":"terminal_answer","ok":true}
+{"ts":"2026-10-12T18:54:37.240Z","c":"worker","msg":"terminal answer","session":"3c9a5daf-c59a-45c4-84f4-d275a8a353f8","kind":"dev_channel_warning","option":"I am using this for local development"}
+{"ts":"2026-10-12T18:54:37.240Z","c":"worker","msg":"command","id":"c-6b3a3d65dc77d89d","name":"terminal_answer","ok":true}
+{"ts":"2026-10-12T18:54:37.532Z","c":"worker","msg":"command","id":"c-b29681c14d4ca9aa","name":"session_send","ok":true}
+{"ts":"2026-10-12T18:54:37.536Z","c":"worker","msg":"bridge connected","session":"3c9a5daf-c59a-45c4-84f4-d275a8a353f8","pid":96867}
+{"ts":"2026-10-12T18:54:57.611Z","c":"worker","msg":"command","id":"c-129eda3bd4ca036c","name":"approval_answer","ok":true}
+{"ts":"2026-10-12T18:55:19.046Z","c":"worker","msg":"command","id":"c-3f4ff3914a96a9c7","name":"session_send","ok":true}
+{"ts":"2026-10-12T18:55:25.726Z","c":"worker","msg":"command","id":"c-fad1cd02dd70f5aa","name":"approval_answer","ok":true}
+{"ts":"2026-10-12T18:55:43.051Z","c":"worker","msg":"command","id":"c-d61ce26d67e76e05","name":"session_send","ok":true}
+{"ts":"2026-10-12T18:55:48.328Z","c":"worker","msg":"command","id":"c-839feb8b00f5b4dd","name":"session_stop","ok":true}
+{"ts":"2026-10-12T18:55:53.325Z","c":"worker","msg":"session launch","session":"3c9a5daf-c59a-45c4-84f4-d275a8a353f8","tmux":"hntjew7-e2e-3c9a5daf","resume":true,"ok":true}
+{"ts":"2026-10-12T18:55:53.327Z","c":"worker","msg":"command","id":"c-efe1f6f234795d57","name":"session_resume","ok":true}
+{"ts":"2026-10-12T18:55:55.234Z","c":"worker","msg":"terminal answer","session":"3c9a5daf-c59a-45c4-84f4-d275a8a353f8","kind":"dev_channel_warning","option":"I am using this for local development"}
+{"ts":"2026-10-12T18:55:55.235Z","c":"worker","msg":"command","id":"c-687b0c6a4d65f77d","name":"terminal_answer","ok":true}
+{"ts":"2026-10-12T18:55:55.749Z","c":"worker","msg":"bridge connected","session":"3c9a5daf-c59a-45c4-84f4-d275a8a353f8","pid":1724}
+{"ts":"2026-10-12T18:55:56.240Z","c":"worker","msg":"command","id":"c-8ae858e433088439","name":"session_send","ok":true}
+{"ts":"2026-10-12T18:55:58.339Z","c":"worker","msg":"stop: /exit timed out, killing tmux session","session":"3c9a5daf-c59a-45c4-84f4-d275a8a353f8"}
+{"ts":"2026-10-12T18:56:02.792Z","c":"worker","msg":"command","id":"c-77d19d4bf9f872d7","name":"list","ok":true}
+{"ts":"2026-10-12T18:56:06.127Z","c":"worker","msg":"session launch","session":"3c9a5daf-c59a-45c4-84f4-d275a8a353f8","tmux":"hntjew7-e2e-3c9a5daf","resume":true,"ok":true}
+{"ts":"2026-10-12T18:56:06.128Z","c":"worker","msg":"command","id":"c-da08cf821cf6f8c0","name":"session_resume","ok":true}
+{"ts":"2026-10-12T18:56:07.187Z","c":"worker","msg":"terminal answer","session":"3c9a5daf-c59a-45c4-84f4-d275a8a353f8","kind":"dev_channel_warning","option":"I am using this for local development"}
+{"ts":"2026-10-12T18:56:07.187Z","c":"worker","msg":"command","id":"c-e72068ca92d3d2d3","name":"terminal_answer","ok":true}
+{"ts":"2026-10-12T18:56:07.477Z","c":"worker","msg":"bridge connected","session":"3c9a5daf-c59a-45c4-84f4-d275a8a353f8","pid":2482}
+{"ts":"2026-10-12T18:56:10.776Z","c":"worker","msg":"command","id":"c-2480cc6f6ca1831d","name":"session_send","ok":true}

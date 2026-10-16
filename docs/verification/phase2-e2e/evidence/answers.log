@@ -1,0 +1,8 @@
+2026-10-12T18:54:23.856Z _secretary/secretary terminal:workspace_trust -> 1 (200)
+2026-10-12T18:54:25.972Z _secretary/secretary terminal:dev_channel_warning -> 0 (200)
+2026-10-12T18:54:35.119Z local/e2e terminal:workspace_trust -> 1 (200)
+2026-10-12T18:54:37.241Z local/e2e terminal:dev_channel_warning -> 0 (200)
+2026-10-12T18:54:57.615Z local/e2e tool:Bash: Write hello.txt and show its contents and bytes -> allow (200)
+2026-10-12T18:55:25.727Z local/e2e tool:Bash: Create empty denied-marker.txt in project root -> deny (200)
+2026-10-12T18:55:55.235Z local/e2e terminal:dev_channel_warning -> 0 (200)
+2026-10-12T18:56:07.188Z local/e2e terminal:dev_channel_warning -> 0 (200)

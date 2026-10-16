@@ -1,0 +1,7 @@
+{"ts":"2026-10-12T18:54:22.298Z","c":"hub.secretary","msg":"session launch","session":"bc4ef2dc-7b66-4193-ab9a-bf5811796ef2","tmux":"hntjew7-secretary-bc4ef2dc","resume":false,"ok":true}
+{"ts":"2026-10-12T18:54:22.298Z","c":"hub","msg":"hub started","url":"http://127.0.0.1:22211","workers":1}
+WebChat: http://127.0.0.1:22211/#token=<secrets/webchat-token>
+{"ts":"2026-10-12T18:54:22.557Z","c":"hub","msg":"worker connected","worker":"local","version":"0.1.0"}
+{"ts":"2026-10-12T18:54:23.856Z","c":"hub.secretary","msg":"terminal answer","session":"bc4ef2dc-7b66-4193-ab9a-bf5811796ef2","kind":"workspace_trust","option":"Yes, I trust this folder"}
+{"ts":"2026-10-12T18:54:25.972Z","c":"hub.secretary","msg":"terminal answer","session":"bc4ef2dc-7b66-4193-ab9a-bf5811796ef2","kind":"dev_channel_warning","option":"I am using this for local development"}
+{"ts":"2026-10-12T18:54:26.317Z","c":"hub.secretary","msg":"bridge connected","session":"bc4ef2dc-7b66-4193-ab9a-bf5811796ef2","pid":96064}
