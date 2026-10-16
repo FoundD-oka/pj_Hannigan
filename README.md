@@ -1,39 +1,45 @@
 # pj_Hannigan
 
-WebChat だけで会話し、手元の秘書 Claude Code が複数の Mac 上の Claude Code に仕事を振り分ける、
-Claude Code Channels ベースの遠隔運用システム。最終的に OSS として公開することを目標にしています。
+WebChat で統括秘書 Claude Code に依頼するだけで、複数の Mac 上の案件 PM Claude Code と作業セッションに仕事が割り振られ、
+進捗の監督と介入まで一元化できる、Claude Code Channels ベースの遠隔運用システム。
+「AI を操作する環境」から「AI に仕事を任せ、その進行を監督する環境」への転換を目指し、最終的に OSS として公開します。
 
 ## 目指す形
 
 ```text
-[あなた] WebChat
-   │
-   ▼
-[ハブ Mac]  ハブ（WebChat UI + 中継 + 秘書用チャネル） ⇄ 秘書 Claude Code
+[あなた] WebChat（メイン窓口）            Discord（サブ窓口。最後に実装）
+   │                                      │
+   ▼                                      ▼
+[VPS]  ハブ（WebChat 配信 + 中継 + 案件台帳 + オフライン保留） ⇄ 統括秘書 Claude Code（会話ごとに 1 セッション）
    │ 常時接続（作業 Mac 側から接続しに来る）
-   ├── [作業 Mac A] ワーカー常駐プログラム ─ Claude Code セッション（プロジェクトごとに 1 つ）
-   └── [作業 Mac B] ワーカー常駐プログラム ─ Claude Code セッション（プロジェクトごとに 1 つ）
+   ├── [作業 Mac A] ワーカー常駐プログラム ─ 案件 PM Claude Code ─ 作業セッション × N（純正 CU はここ）
+   └── [作業 Mac B] ワーカー常駐プログラム ─ 案件 PM Claude Code ─ 作業セッション × N
 ```
 
-- 秘書 Claude はハブのツール（session_create / session_send など）を呼ぶだけ。Claude 同士は直接話さない
+- 統括秘書は会話内容から担当の Mac と案件を選び、ハブのツール（project_pm_send など）で案件 PM に指示する。Claude 同士は直接話さない
+- 案件 PM は軽い作業を自分で行い、長時間・並列・GUI 操作の作業は同じ Mac の子セッションに委任して結果を集約する
 - 作業 Mac では Claude ではない常駐プログラムが、tmux の中で Claude Code を起動・停止し、結果をハブへ返す
+- Mac がオフラインでも依頼はハブが 24 時間保留し、復帰後に受付順で配送する
 - 設定はファイルを正とし、設定画面はそれを編集する道具。秘密情報は分けて保存する
+
+実装の順序は「ローカル実地テスト → VPS → Discord」。ハブも手元の Mac で動かして新設計を使い込み、成立してから VPS に移す。
 
 詳細は [docs/design/00-architecture.md](docs/design/00-architecture.md)、進め方は [docs/ROADMAP.md](docs/ROADMAP.md)。
 
 ## 現状
 
-Phase 2（1 台で動く MVP）まで実装済み。進み具合は [docs/ROADMAP.md](docs/ROADMAP.md) を参照。
+Phase 2（1 台で動く MVP）まで実装済み。設計は 2026-10-16 に Q1〜Q17 のヒアリングで改訂し（[決定記録](docs/design/CHANGELOG.md)）、次は Phase 3 のローカル実地テスト。進み具合は [docs/ROADMAP.md](docs/ROADMAP.md) を参照。
 
 | 項目 | 状態 |
 | --- | --- |
 | Channels × 純正 Computer Use の実機検証 | 完了（[docs/verification/claude-channels/](docs/verification/claude-channels/README.md)） |
-| 設計書（設定スキーマ、ワーカー常駐プログラム、通信） | 完了（[docs/design/](docs/design/)） |
+| 設計書（全体、設定スキーマ、ワーカー常駐プログラム、通信） | 2026-10-16 改訂版（[docs/design/](docs/design/)）。VPS 秘書、案件 PM 階層、WebChat 直接介入、オフライン保留、書込直列化、Discord。追加仕様は未実装 |
 | T12: チャネル経由のコマンド実行 | 完了。実行されない（[報告](docs/verification/t12-channel-command/README.md)） |
 | T11: Remote Control × CU 承認 | 実施済み。CU 承認はスマホに届かず端末にだけ出る。承認はセッション単位（[結果](docs/verification/t11-remote-control-cu/README.md)） |
 | ハブ、ワーカー常駐プログラム、WebChat（1 台構成） | 実装済み。偽 Claude での自動試験と本物の Claude での一巡を確認（[報告](docs/verification/phase2-e2e/README.md)） |
+| Phase 3: ローカル実地テスト（案件 PM 階層、スレッド直接介入、会話分離、オフライン保留、書込直列化） | 未着手。次の作業 |
 
-## 使い方（Phase 2：同じ Mac でハブとワーカーを動かす）
+## 使い方（Phase 2 の構成：同じ Mac でハブとワーカーを動かす。Phase 3 もこの形で進める）
 
 必要なもの: macOS、[Bun](https://bun.sh) 1.3 以降、tmux、Claude Code v2.1.296 以降（claude.ai にログイン済み）。
 
