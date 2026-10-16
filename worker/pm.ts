@@ -1,7 +1,7 @@
 // Project PM / task routing on the worker (02 §3.4-3.6, §4, §4.1): pm_ensure, pm_send, thread_direct_send,
 // the PM's local tools, task reports to the PM, and the events the hub uses for threads.
 import { z } from 'zod'
-import type { LoadedWorkerConfig, ProjectConfig } from '../shared/config.ts'
+import { canonical, type LoadedWorkerConfig, type ProjectConfig } from '../shared/config.ts'
 import {
   CommandError,
   cleanMeta,
@@ -154,7 +154,9 @@ export class Router {
   // the PM record, created when missing; resumed only when `resume` (pm_send leaves that to the dispatcher)
   private ensurePmRecord(p: ProjectConfig, resume: boolean): SessionRecord {
     if (!p.pm.enabled) throw new CommandError('pm_disabled', `project "${p.id}" has its project PM disabled`)
-    const pm = this.findPm(p.id)
+    let pm = this.findPm(p.id)
+    // a stopped PM of the project's old folder (moved in the settings) is not resumed: a new PM starts in the new one
+    if (pm && TERMINAL_STATES.includes(pm.state) && pm.cwd !== p.path && canonical(pm.cwd) !== p.path) pm = undefined
     if (!pm) {
       const s = this.m.create({ project: p.id, cwd: p.path, name: `${p.id} PM`, role: 'pm', pm_session: null })
       this.d.inventory()
@@ -491,6 +493,16 @@ export class Router {
   // sessions whose transcript is observed for the thread view: PMs and tasks of a PM
   static observed(s: { role: string; pm_session: string | null }): boolean {
     return s.role === 'pm' || (s.role === 'task' && !!s.pm_session)
+  }
+
+  // settings screen (config_set): a stopped session whose project was removed or moved is never resumed in the
+  // old folder, because that folder is no longer guarded by a workspace lease (fail closed)
+  resumeBlocked(s: SessionRecord): string | null {
+    if (s.role !== 'pm' && s.role !== 'task') return null
+    const p = this.d.cfg.projects.find(x => x.id === s.project)
+    if (!p) return `project "${s.project}" was removed from worker.json; its sessions cannot be resumed`
+    if (p.path !== s.cwd && p.path !== canonical(s.cwd)) return `project "${s.project}" now uses another folder; sessions of the old folder cannot be resumed`
+    return null
   }
 
   // the write-lease guard goes into every worker session, Phase 2 orphan tasks included

@@ -59,6 +59,8 @@ export type ManagerOptions = {
   bridgeToken: string
   serverName: string
   maxSessions: number
+  // why a stopped session must not be resumed (worker: its project was removed or moved in the settings), or null
+  resumeBlocked?: (s: SessionRecord) => string | null
   isTrustedDir: (dir: string) => boolean
   emit: (e: WorkerEvent) => void
   setupFor: (s: SessionInfo & { cwd: string }) => BridgeSetup
@@ -210,6 +212,11 @@ export class SessionManager {
     return this.o.specByRole?.[s.role] ?? this.o.spec
   }
 
+  // settings screen (hub: secretary.contexts.max_active); running sessions above a lowered limit keep running
+  setMaxSessions(n: number): void {
+    this.o.maxSessions = n
+  }
+
   // ------------------------------------------------------------ commands
   private ensureSlot(): void {
     const running = [...this.sessions.values()].filter(s => !TERMINAL.includes(s.state)).length
@@ -259,6 +266,8 @@ export class SessionManager {
   resume(key: string, chat_id?: string | null): SessionInfo {
     const s = this.get(key)
     if (!TERMINAL.includes(s.state)) throw new CommandError('invalid_state', `session is ${s.state}; only stopped sessions can be resumed`)
+    const blocked = this.o.resumeBlocked?.(s)
+    if (blocked) throw new CommandError('invalid_state', blocked)
     this.ensureSlot() // a resumed session counts like a new one (max_sessions)
     if (tmux.hasSession(s.tmux)) tmux.killSession(s.tmux)
     if (chat_id) s.last_chat_id = chat_id

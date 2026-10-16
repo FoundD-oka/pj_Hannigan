@@ -14,6 +14,7 @@ import {
   cleanMeta,
   parseJson,
   type CommandName,
+  type ConfigSetResult,
   type DeliveryStatus,
   type ErrorCode,
   type HubCommand,
@@ -36,6 +37,7 @@ import { Ledger } from './ledger.ts'
 import { OfflineQueue } from './offline-queue.ts'
 import { RequestStore, type RequestState } from './requests.ts'
 import { SECRETARY_TOOLS, secretaryInstructions } from './secretary.ts'
+import { planHubSettings, SettingsError } from './settings.ts'
 import { buildThreads, coverageOf, nextCoverage, threadHistory, type Coverage } from './threads.ts'
 
 let cfg: ReturnType<typeof loadHubConfig>
@@ -951,7 +953,7 @@ async function refreshWorker(id: string): Promise<void> {
   const r = await sendCommand(id, 'list', {}, 5000)
   if (!r.ok) return
   const d = r.data as { projects: ProjectInfo[]; sessions: SessionInfo[] }
-  w.projects = d.projects
+  w.projects = withoutPaths(d.projects)
   w.sessions = new Map(d.sessions.map(s => [s.key, s]))
 }
 
@@ -1233,6 +1235,112 @@ function stateSnapshot() {
   }
 }
 
+// ---------------------------------------------------------------- settings screen (3f, 01 §25)
+// Project folders come only from a live `list` / `config_set` result and go straight to the settings screen:
+// they are never cached, recorded in the event log or shown elsewhere (local paths stay off the hub's records).
+function withoutPaths(ps: ProjectInfo[]): ProjectInfo[] {
+  return ps.map(({ path: _p, ...rest }) => rest)
+}
+
+async function settingsView() {
+  const worker_projects: Record<string, ProjectInfo[]> = {}
+  const paths_known: Record<string, boolean> = {}
+  for (const id of workerIds()) {
+    const w = workerConn(id)
+    const r = w.connected ? await sendCommand(id, 'list', {}, 5000) : null
+    if (r?.ok) {
+      const d = r.data as { projects: ProjectInfo[]; sessions: SessionInfo[] }
+      worker_projects[id] = d.projects
+      w.projects = withoutPaths(d.projects)
+      paths_known[id] = true
+    } else {
+      worker_projects[id] = w.projects // last inventory, without folders
+      paths_known[id] = false
+    }
+  }
+  return {
+    paths_known,
+    hub: {
+      secretary: { contexts: { max_active: cfg.secretary.contexts.max_active, idle_minutes: cfg.secretary.contexts.idle_minutes } },
+      offline_queue: {
+        enabled: cfg.offline_queue.enabled,
+        ttl_minutes: cfg.offline_queue.ttl_minutes,
+        max_pending_per_worker: cfg.offline_queue.max_pending_per_worker,
+      },
+      workers: cfg.workers.map(w => ({ id: w.id, display_name: w.display_name, role: w.role, connected: isConnected(w.id) })),
+    },
+    worker_projects,
+    // shown for reference; changing them means editing hub.json / the secrets and restarting
+    fixed: {
+      listen: { host: cfg.listen.host, port: cfg.listen.port, editable: false },
+      public_url: { value: cfg.public_url, editable: false },
+      secrets: { editable: false },
+    },
+  }
+}
+
+function saveHubSettings(input: unknown): Response {
+  if (input == null || typeof input !== 'object') return json({ ok: false, error: 'bad_args', message: '設定を JSON オブジェクトで送ってください' }, 400)
+  const file = join(home, 'hub.json')
+  let plan
+  try {
+    plan = planHubSettings(input, readJson<unknown>(file, null), cfg)
+  } catch (e) {
+    if (e instanceof SettingsError) return json({ ok: false, error: 'bad_args', message: e.message }, 400)
+    throw e
+  }
+  try {
+    writeJsonAtomic(file, plan.file)
+  } catch (e) {
+    return json({ ok: false, error: 'internal', message: `hub.json を保存できませんでした（設定は変わっていません）: ${(e as Error).message}` }, 500)
+  }
+  // apply in place: cfg keeps its resolved paths, only the edited fields change
+  const n = plan.config
+  cfg.secretary.contexts.max_active = n.secretary.contexts.max_active
+  cfg.secretary.contexts.idle_minutes = n.secretary.contexts.idle_minutes
+  secretaries.setMaxSessions(n.secretary.contexts.max_active)
+  cfg.offline_queue.enabled = n.offline_queue.enabled
+  cfg.offline_queue.ttl_minutes = n.offline_queue.ttl_minutes
+  cfg.offline_queue.max_pending_per_worker = n.offline_queue.max_pending_per_worker
+  queue.setLimits({ ttlMinutes: n.offline_queue.ttl_minutes, maxPendingPerWorker: n.offline_queue.max_pending_per_worker })
+  for (const w of cfg.workers) {
+    const x = n.workers.find(y => y.id === w.id)
+    if (x) {
+      w.display_name = x.display_name
+      w.role = x.role
+    }
+  }
+  if (plan.changed.length) events.record('settings_changed', { scope: 'hub', fields: plan.changed })
+  return json({ ok: true, changed: plan.changed, applies: plan.applies })
+}
+
+async function saveWorkerSettings(b: { worker?: unknown; projects?: unknown } | null): Promise<Response> {
+  if (!b || typeof b.worker !== 'string' || !ID_RE.test(b.worker) || !Array.isArray(b.projects))
+    return json({ ok: false, error: 'bad_args', message: 'worker（ワーカー ID）と projects（配列）が必要です' }, 400)
+  const worker = b.worker
+  if (!knownWorker(worker)) return json({ ok: false, error: 'not_found', message: `ワーカー「${worker}」は登録されていません` }, 404)
+  if (!isConnected(worker))
+    return json({ ok: false, error: 'worker_offline', message: `ワーカー「${displayName(worker)}」がオフラインです。Mac でワーカーが動いているときに保存してください` }, 409)
+  // never held in the offline queue: a settings change applies now or not at all
+  const r = await sendCommand(worker, 'config_set', { projects: b.projects })
+  if (!r.ok) {
+    const status = r.error.code === 'bad_args' || r.error.code === 'project_in_use' ? 400 : r.error.code === 'worker_offline' ? 409 : 502
+    const unknown = r.sent && (r.error.code === 'timeout' || r.error.code === 'worker_offline')
+    return json(
+      {
+        ok: false,
+        error: r.error.code,
+        message: unknown ? `${r.error.message}。保存されたかどうか分かりません。設定画面を開き直して確認してください` : r.error.message,
+      },
+      status,
+    )
+  }
+  const d = r.data as ConfigSetResult
+  workerConn(worker).projects = withoutPaths(d.projects)
+  events.record('settings_changed', { scope: 'worker', worker, projects: d.projects.map(p => p.id) })
+  return json({ ok: true, worker, projects: d.projects, pm_restart_needed: d.pm_restart_needed ?? [] })
+}
+
 async function body<T>(req: Request): Promise<T | null> {
   try {
     return (await req.json()) as T
@@ -1434,6 +1542,9 @@ const server: BunServer<WsData> = Bun.serve<WsData>({
       return new Response(stream, { headers: { 'content-type': 'text/event-stream', 'cache-control': 'no-cache' } })
     }
     if (req.method === 'GET' && url.pathname === '/api/state') return json(stateSnapshot())
+    if (req.method === 'GET' && url.pathname === '/api/settings') return json(await settingsView())
+    if (req.method === 'POST' && url.pathname === '/api/settings/hub') return saveHubSettings(await body(req))
+    if (req.method === 'POST' && url.pathname === '/api/settings/worker') return saveWorkerSettings(await body(req))
     if (req.method === 'GET' && url.pathname === '/api/threads') return threadsRoute()
     if (req.method === 'GET' && url.pathname === '/api/thread/history') return threadHistoryRoute(url)
     if (req.method === 'POST' && url.pathname === '/api/thread/send') return threadSend(await body(req))

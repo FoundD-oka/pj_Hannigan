@@ -1,5 +1,6 @@
 #!/bin/bash
 # Start the hub and the worker daemon of this Mac in tmux sessions (Phase 2; launchd comes in Phase 4).
+# The first run creates the settings and keys (scripts/dev-setup.ts); projects are added in WebChat 設定.
 # usage: scripts/start.sh [hub|worker|all]   (default: all)
 # env:   HANNIGAN_HOME (default ~/.hannigan)
 set -euo pipefail
@@ -8,6 +9,12 @@ WHAT="${1:-all}"
 HOME_DIR="${HANNIGAN_HOME:-$HOME/.hannigan}"
 PREFIX="${HANNIGAN_TMUX_PREFIX:-hn}"
 mkdir -p "$HOME_DIR/logs"
+# first start: create hub.json / worker.json and the keys for this Mac (no projects; add them in WebChat 設定).
+# dev-setup keeps every file that already exists.
+if [ ! -f "$HOME_DIR/hub.json" ] || [ ! -f "$HOME_DIR/worker.json" ]; then
+  echo "first start: creating settings in $HOME_DIR"
+  HANNIGAN_HOME="$HOME_DIR" bun "$REPO/scripts/dev-setup.ts" --worker local --name "この Mac"
+fi
 start() { # name script
   local name="$PREFIX-$1"
   if tmux has-session -t "=$name" 2>/dev/null; then echo "$name already running"; return; fi

@@ -248,11 +248,17 @@ export type SessionState =
   | 'exited'
   | 'failed'
 
+export type ExecutionPolicyName = 'delegate_only' | 'hybrid' | 'direct_first'
+export type ProjectPmInfo = { enabled: boolean; autostart: boolean; execution_policy: ExecutionPolicyName; extra_instructions: string }
 export type ProjectInfo = {
   id: string
   description: string
   pm_enabled: boolean
-  execution_policy?: 'delegate_only' | 'hybrid' | 'direct_first'
+  execution_policy?: ExecutionPolicyName
+  // added for the settings screen (3f, additive within PROTO 2), optional because older or scripted workers omit
+  // them. path: the project folder (`~/...` under home), ONLY in list / config_set results, never in events.
+  path?: string
+  pm?: ProjectPmInfo
 }
 export type SessionInfo = {
   key: string
@@ -295,6 +301,7 @@ export type CommandName =
   | 'session_stop'
   | 'approval_answer'
   | 'terminal_answer'
+  | 'config_set'
 
 export const COMMANDS: CommandName[] = [
   'list',
@@ -308,12 +315,25 @@ export const COMMANDS: CommandName[] = [
   'session_stop',
   'approval_answer',
   'terminal_answer',
+  'config_set',
 ]
 
 // only these may be held in the hub's offline queue (Q12/C)
 export const OFFLINE_QUEUEABLE: CommandName[] = ['pm_send', 'thread_direct_send']
 
 // ---- command arguments / results (02 §4)
+// config_set (3f settings screen): replaces worker.json projects[] as a whole. Omitted description / pm fields keep
+// the current values of a project with the same id (defaults for a new one). Never held in the offline queue.
+export type ConfigSetProject = {
+  id: string
+  path: string
+  description?: string
+  pm?: Partial<ProjectPmInfo>
+}
+export type ConfigSetArgs = { projects: ConfigSetProject[] }
+// pm_restart_needed: projects whose PM is running; their PM settings apply when that PM starts next time
+export type ConfigSetResult = { projects: ProjectInfo[]; pm_restart_needed: string[] }
+
 export type PmEnsureArgs = { project: string }
 export type PmEnsureResult = { session: SessionInfo }
 
@@ -371,6 +391,7 @@ export type ErrorCode =
   | 'forbidden' // generic refusal (role / origin)
   | 'forbidden_scope' // PM touching another project's or worker's session
   | 'forbidden_origin' // request origin cannot be attributed
+  | 'project_in_use' // config_set would remove / move a project that still has live sessions
   | 'internal'
 
 export const ERROR_CODES: ErrorCode[] = [
@@ -395,6 +416,7 @@ export const ERROR_CODES: ErrorCode[] = [
   'forbidden',
   'forbidden_scope',
   'forbidden_origin',
+  'project_in_use',
   'internal',
 ]
 

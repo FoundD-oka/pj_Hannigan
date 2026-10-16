@@ -57,6 +57,8 @@ Phase 2〜3 の同一 Mac `ws://127.0.0.1` はローカル実地テストの構�
 
 出来事の種類は 02 の 5 章のとおり。
 
+**在庫（`inventory` の `projects[]`、`list` の返り値）の `ProjectInfo`**: `{ id, description, pm_enabled, execution_policy, pm: { enabled, autostart, execution_policy, extra_instructions }, path? }`。`pm`（`projects[].pm` の全項目）と `path`（Mac 上の案件フォルダ。ホームの下は `~/…`）は設定画面（01 §25）のために 2026-10-16 に足した。**`path` は命令 `list` と `config_set` の返り値にだけ載せ、出来事 `inventory` には載せない**（ローカルの場所をハブの出来事記録に残さないため）。ハブも `path` を保持・記録せず、設定画面への応答にだけ使う。項目の追加だけで既存の項目の意味は変えないので、`proto=2` のままとする。古いワーカーや試験用のワーカーは新しい項目を省いてよく、ハブは省かれていても動く。
+
 ### 2.3 命令（ハブ → ワーカー）
 
 ```json
@@ -71,6 +73,7 @@ Phase 2〜3 の同一 Mac `ws://127.0.0.1` はローカル実地テストの構�
 - **Q12/Cで変更:** オフライン中の**作業指示** `pm_send`／WebChat起点 `thread_direct_send` のみ、ハブで期限付き永続保留する。設定無効・保留不可なら従来の `worker_offline` を返す。承認回答・停止・中断・端末操作などの時限コマンドは保留しない
 - **Q6/B:** `pm_send.request_id`（ハブ発行）を必須とする。VPS は `request_id` と実行元の秘書会話セッションを永続的に紐づけ、ワーカーへは外部会話IDを送らない。PMの報告に同じ `request_id` を付与させ、`last_chat_id` や直近依頼で宛先を推測しない。
 - `pm_send` は案件に対して冪等な PM 起動／再開を伴う。`result` の `pm_session` は対象 PM の UUID、`status` は `delivered` または `queued`。**配信成功は PM の作業完了を意味しない**。以降 PM が直接処理するか子に委任するかは PM の実行ポリシーで判断し、ハブは通常の依頼ごとに子作成を強制しない
+- **設定画面（01 §25）:** `config_set` は `args={ projects: [{ id, path, description?, pm?: { enabled?, autostart?, execution_policy?, extra_instructions? } }] }` で `worker.json` の `projects` 全体を置き換える。返り値は `{ projects: ProjectInfo[], pm_restart_needed: string[] }`（`pm_restart_needed` は PM が動いているため PM 設定の反映が次の起動になる案件）。ワーカーは全項目を検証してから `worker.json` を原子的に書き換え、メモリ上の設定と書込権の対象一覧を差し替えて `inventory` を送る。オフライン保留の対象にはしない（`OFFLINE_QUEUEABLE` は `pm_send` と `thread_direct_send` だけのまま）。命令の追加だけなので `proto=2` のままとする
 - **Q4/B・Q5/A:** `thread_direct_send` は WebChat の認証済み直接投稿専用で、Discord アダプターからは実行できない。`args={session,text,message_id}`。受信側で対象 `role`／所属 PM を再確認し、子への投稿なら PM 通知を対で永続化する。応答は `target_delivery` と `pm_notice_delivery` を別々に返す。`delivered` はチャネルへの書き込み完了で、Claude の指示処理・作業完了ではない
 - 同じ `(worker,session,message_id)` の再送は **本文の再実行を伴わず**前の配送状態を返す。ハブの HTTP リトライと WSS 命令 ID の重複排除の両段で冪等化する。子指示と PM 通知は単一の永続ジャーナルに同時登録してから配送を開始する。PM 通知を登録できない場合は子への新規投稿を部分受理せずエラーにする
 
@@ -95,6 +98,7 @@ Phase 2〜3 の同一 Mac `ws://127.0.0.1` はローカル実地テストの構�
 | `resource_busy` | CUまたは競合作業領域が使用中。Macが永続受理済みなら `resource_wait` として継続し、永続受理不能なら明示エラー |
 | `resource_unknown` | CU所有者や書込可能領域の隔離が不明で、安全側に実行を停止 |
 | `forbidden_scope` | PM が他案件や別ワーカーの作業セッションを操作しようとした |
+| `project_in_use` | `config_set` が、動いているセッション（PM または子）のある案件を削除するか、フォルダを変えようとした。動いているセッションを `message` に挙げる |
 | `internal` | そのほか |
 
 ### 2.3.1 Q12/C：期限付き保留依頼を復帰後に配送する（VPS ⇄ Mac）

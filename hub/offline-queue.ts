@@ -30,6 +30,12 @@ export class OfflineQueue {
     this.now = o.now ?? Date.now
   }
 
+  // settings screen: new limits apply to requests accepted from now on; expires_at of held ones never changes
+  setLimits(l: { ttlMinutes: number; maxPendingPerWorker: number }): void {
+    this.o.ttlMinutes = l.ttlMinutes
+    this.o.maxPendingPerWorker = l.maxPendingPerWorker
+  }
+
   // Reload from disk. Items left in `dispatching` (the hub stopped while sending) cannot be told apart
   // from sent ones, so they become delivery_unknown and are never re-sent automatically. Returns those.
   restore(): OfflineRequest[] {

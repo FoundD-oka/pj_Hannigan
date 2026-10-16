@@ -70,6 +70,22 @@
   .dstate .bad { color:var(--ng); } .dstate .good { color:var(--ok); } .dstate .wait { color:#b07600; }
   .entry { background:var(--wrk); margin-right:12%; font-size:14px; }
   .warnline { color:var(--ng); }
+  #settings h2 { font-size:15px; margin:18px 0 6px; }
+  .card { border:1px solid var(--line); border-radius:10px; padding:10px 12px; margin:8px 0; background:var(--card); }
+  .field { display:flex; flex-wrap:wrap; gap:4px 10px; align-items:center; margin:6px 0; font-size:14px; }
+  .field > span:first-child { min-width:150px; color:var(--muted); font-size:13px; }
+  .field input[type=text], .field input[type=number], .field textarea, .field select { flex:1; min-width:0; max-width:none; font:inherit; font-size:14px; padding:5px 8px; border-radius:6px; border:1px solid var(--line); background:var(--bg); color:var(--fg); }
+  .field input[type=number] { flex:none; width:110px; }
+  .field textarea { min-height:38px; resize:vertical; }
+  .field input:read-only { color:var(--muted); }
+  .hint { font-size:12px; color:var(--muted); }
+  .proj-edit { border-top:1px dashed var(--line); margin-top:8px; padding-top:6px; }
+  .proj-edit.new { background:var(--sel); border-radius:8px; padding:6px 8px; }
+  .msg { font-size:13px; margin-top:6px; white-space:pre-wrap; word-break:break-word; }
+  .msg.ng { color:var(--ng); } .msg.ok { color:var(--ok); }
+  fieldset { border:none; margin:0; padding:0; min-width:0; }
+  fieldset:disabled { opacity:.6; }
+  @media (max-width: 600px) { .field > span:first-child { min-width:100%; } }
 </style>
 </head>
 <body>
@@ -79,12 +95,14 @@
   <span id="pending" title="未回答の承認へ移動"></span>
   <select id="convSel" title="会話の切り替え"></select>
   <button id="newConv" type="button">新しい会話</button>
+  <button id="settingsBtn" type="button">設定</button>
   <button id="panelBtn" type="button">スレッド</button>
 </header>
 <div class="layout">
   <main>
     <div id="log"></div>
     <div id="thread" style="display:none"></div>
+    <div id="settings" style="display:none"></div>
   </main>
   <aside id="panel">
     <div id="alerts"></div>
@@ -331,14 +349,18 @@ function onEvent(e) {
   if (view.mode === 'chat' && inChat(e)) renderChat(e);
   if (view.mode === 'thread' && th && inThread(e, th.worker, th.session) && !th.seqs.has(e.seq)) { th.seqs.add(e.seq); const d = threadItem(e); if (d) append(th.list, d); }
   applyDeliveryState(e);
-  if (['session_state','worker_link','inventory','offline_request_state','request_expired','resource_lease_state','secretary_context','secretary_idle_stop','direct_delivery_state','request_state'].includes(e.kind)) refreshState();
+  if (view.mode === 'settings' && e.kind === 'worker_link') refreshSettingsConn(e.worker, e.connected);
+  if (['settings_changed','session_state','worker_link','inventory','offline_request_state','request_expired','resource_lease_state','secretary_context','secretary_idle_stop','direct_delivery_state','request_state'].includes(e.kind)) refreshState();
 }
 
 function showView() {
   const chat = view.mode === 'chat';
-  logEl.style.display = chat ? '' : 'none'; threadEl.style.display = chat ? 'none' : '';
+  logEl.style.display = chat ? '' : 'none'; threadEl.style.display = view.mode === 'thread' ? '' : 'none';
+  $('settings').style.display = view.mode === 'settings' ? '' : 'none';
+  document.querySelector('footer').style.display = view.mode === 'settings' ? 'none' : '';
   const ta = $('t');
-  if (chat) {
+  if (view.mode === 'settings') { th = null; loadSettings(); }
+  else if (chat) {
     th = null; logEl.textContent = '';
     for (const e of events) if (inChat(e)) renderChat(e);
     $('target').textContent = `宛先: 秘書（会話 ${conv}）`;
@@ -431,6 +453,133 @@ function renderSide() {
   if (!(state.secretaries || []).length) sec.append(el('div', 'role', 'まだありません（最初の発言で起動します）'));
 }
 $('panelBtn').onclick = () => $('panel').classList.toggle('open');
+
+// ------------------------------------------------------------ settings (hub.json / worker.json through the hub)
+const POLICY_JA = { delegate_only:'子へ委任（PM は計画と確認に専念）', hybrid:'状況で判断（既定）', direct_first:'PM が直接作業を優先' };
+const FIELD_JA = {
+  'secretary.contexts.max_active':'秘書の同時起動数', 'secretary.contexts.idle_minutes':'秘書を止めるまでの放置時間',
+  'offline_queue.enabled':'オフライン保留', 'offline_queue.ttl_minutes':'保留の期限', 'offline_queue.max_pending_per_worker':'保留の上限',
+};
+const fieldJa = f => FIELD_JA[f] || f.replace(/^workers\.(.+)\.display_name$/, 'ワーカー $1 の表示名').replace(/^workers\.(.+)\.role$/, 'ワーカー $1 の役割');
+let settingsData = null;
+$('settingsBtn').onclick = () => { view = view.mode === 'settings' ? { mode: 'chat' } : { mode: 'settings' }; showView(); };
+function input(type, value, attrs) { const i = el(type === 'textarea' ? 'textarea' : 'input'); if (type !== 'textarea') i.type = type; if (type === 'checkbox') i.checked = !!value; else i.value = value == null ? '' : value; Object.assign(i, attrs || {}); return i; }
+function field(label, control, hint) { const f = el('label', 'field'); f.append(el('span', null, label), control); if (hint) f.append(el('div', 'hint', hint)); return f; }
+function loadSettings() {
+  const root = $('settings'); root.textContent = '';
+  const head = el('div', 'thead'); const back = el('button', null, '← 会話へ戻る'); back.onclick = () => { view = { mode: 'chat' }; showView(); };
+  const reload = el('button', null, '再読み込み'); reload.onclick = loadSettings;
+  const t = el('div', 'title', '設定'); head.append(back, ' ', reload, t, el('div', 'role', '保存すると hub.json / worker.json に書き込み、再起動なしで反映します。ファイルを直接編集しても同じです'));
+  root.append(head, el('div', 'role', '読み込み中…'));
+  api('/api/settings').then(r => {
+    if (view.mode !== 'settings') return;
+    root.lastChild.remove();
+    if (!r.hub) { root.append(el('div', 'msg ng', '設定を読めませんでした: ' + (r.message || r.error || r.http))); return; }
+    settingsData = r; renderHubSettings(root, r); for (const w of r.hub.workers) renderWorkerSettings(root, w, r.worker_projects[w.id] || [], (r.paths_known || {})[w.id]);
+    for (const id of Object.keys(r.worker_projects)) if (!r.hub.workers.some(w => w.id === id)) renderWorkerSettings(root, { id, display_name: id, connected: (state.workers.find(x => x.worker === id) || {}).connected }, r.worker_projects[id], (r.paths_known || {})[id]);
+  });
+}
+function renderHubSettings(root, r) {
+  root.append(el('h2', null, 'ハブ（hub.json）'));
+  const c = el('div', 'card'); const h = r.hub;
+  const maxA = input('number', h.secretary.contexts.max_active, { min: 1, max: 64 });
+  const idle = input('number', h.secretary.contexts.idle_minutes, { min: 1 });
+  const oqOn = input('checkbox', h.offline_queue.enabled);
+  const ttl = input('number', h.offline_queue.ttl_minutes, { min: 1 });
+  const maxP = input('number', h.offline_queue.max_pending_per_worker, { min: 1 });
+  c.append(el('div', 'label', '秘書（会話ごと）'),
+    field('同時に動かす秘書の数', maxA, '上限を超えると、いちばん長く使っていない会話の秘書から止めます。下げても動いている秘書はそのまま動きます'),
+    field('放置で止めるまでの分', idle),
+    el('div', 'label', 'オフライン保留（Mac が止まっている間の依頼）'),
+    field('保留を使う', oqOn),
+    field('期限（分）', ttl, '1440 分 = 24 時間。変更は新しく受け付ける依頼から。保留中の依頼の期限は変わりません'),
+    field('ワーカーごとの上限', maxP));
+  const wrows = [];
+  c.append(el('div', 'label', 'ワーカー（表示名と役割）'));
+  for (const w of h.workers) {
+    const dn = input('text', w.display_name || '', { placeholder: w.id });
+    const role = input('textarea', w.role || '', { placeholder: '例: 自宅。個人の開発' });
+    const box = el('div', 'proj-edit'); box.append(el('div', 'role', `ID: ${w.id}`), field('表示名', dn), field('役割（秘書が振り分けに使う）', role));
+    c.append(box); wrows.push({ id: w.id, dn, role });
+  }
+  const fx = r.fixed || {};
+  c.append(el('div', 'hint', `変更できない項目: 待ち受け ${fx.listen ? fx.listen.host + ':' + fx.listen.port : ''}、公開 URL ${fx.public_url && fx.public_url.value || 'なし'}、秘密情報（トークンと鍵）、ワーカーの追加と削除。これらは hub.json と secrets/ を編集してハブを再起動します`));
+  const msg = el('div', 'msg'); const save = el('button', 'allow', 'ハブの設定を保存');
+  save.onclick = () => {
+    const body = {
+      secretary: { contexts: { max_active: Number(maxA.value), idle_minutes: Number(idle.value) } },
+      offline_queue: { enabled: oqOn.checked, ttl_minutes: Number(ttl.value), max_pending_per_worker: Number(maxP.value) },
+      workers: wrows.map(x => ({ id: x.id, display_name: x.dn.value.trim() || null, role: x.role.value })),
+    };
+    save.disabled = true; msg.className = 'msg'; msg.textContent = '保存中…';
+    api('/api/settings/hub', body).then(res => {
+      save.disabled = false;
+      if (!res.ok) { msg.className = 'msg ng'; msg.textContent = '保存できませんでした: ' + (res.message || res.error || res.http); return; }
+      const a = res.applies || {};
+      const lines = [res.changed && res.changed.length ? '保存しました。' : '変更はありませんでした。'];
+      if ((a.now || []).length) lines.push('すぐに反映: ' + a.now.map(fieldJa).join('、'));
+      if ((a.next_secretary_start || []).length) lines.push('次に秘書が起動したときに反映: ' + a.next_secretary_start.map(fieldJa).join('、'));
+      if ((a.restart || []).length) lines.push('ハブの再起動が必要: ' + a.restart.map(fieldJa).join('、'));
+      msg.className = 'msg ok'; msg.textContent = lines.join('\n'); refreshState();
+    });
+  };
+  const bb = el('div', 'btns'); bb.append(save); c.append(bb, msg);
+  root.append(c);
+}
+function projectEditor(p, isNew) {
+  const box = el('div', 'proj-edit' + (isNew ? ' new' : ''));
+  const id = input('text', p.id || '', { placeholder: '例: notes（英数字と - _）', readOnly: !isNew });
+  const path = input('text', p.path || '', { placeholder: '例: ~/work/notes（Mac 上の既存のフォルダ）' });
+  const desc = input('text', p.description || '', { placeholder: '秘書と PM への説明' });
+  const pm = p.pm || { enabled: p.pm_enabled !== false, execution_policy: p.execution_policy || 'hybrid', extra_instructions: '' };
+  const en = input('checkbox', pm.enabled);
+  const pol = el('select'); for (const k of Object.keys(POLICY_JA)) { const o = el('option', null, `${POLICY_JA[k]}（${k}）`); o.value = k; if (k === (pm.execution_policy || 'hybrid')) o.selected = true; pol.append(o); }
+  const extra = input('textarea', pm.extra_instructions || '', { placeholder: 'この案件の PM への追加指示（任意）' });
+  const del = el('button', 'deny', isNew ? 'この行を消す' : '削除'); del.type = 'button';
+  del.onclick = () => { if (isNew || confirm(`案件「${p.id}」を設定から外します（フォルダは消しません）。保存で反映します`)) box.remove(); };
+  box.append(field('案件 ID', id, isNew ? '' : 'ID は変えられません。変えたいときは削除して追加します'), field('フォルダ', path), field('説明', desc), field('PM を使う', en), field('PM の進め方', pol), field('PM への追加指示', extra));
+  const b = el('div', 'btns'); b.append(del); box.append(b);
+  box._get = () => ({ id: id.value.trim(), path: path.value.trim(), description: desc.value, pm: { enabled: en.checked, execution_policy: pol.value, extra_instructions: extra.value } });
+  return box;
+}
+function renderWorkerSettings(root, w, projects, pathsKnown) {
+  root.append(el('h2', null, `ワーカー ${w.display_name || w.id}（worker.json の案件）`));
+  const c = el('div', 'card'); c.dataset.worker = w.id;
+  const head = el('div', 'head'); head.style.display = 'flex'; head.style.gap = '6px'; head.style.alignItems = 'center';
+  head.append(el('span', 'dot' + (w.connected ? ' on' : '')), el('span', 'role conntext', w.connected ? '接続中' : 'ワーカーがオフライン。Mac でワーカーが動いているときに編集できます'));
+  const fs = el('fieldset'); fs.disabled = !w.connected || !pathsKnown;
+  if (w.connected && !pathsKnown) head.append(el('span', 'role warnline', ' 案件のフォルダを読めませんでした。「再読み込み」してください'));
+  const list = el('div');
+  for (const p of projects) list.append(projectEditor(p, false));
+  if (!projects.length) list.append(el('div', 'role empty', '案件はまだありません。「案件を追加」から Mac 上のフォルダを登録します'));
+  const add = el('button', null, '案件を追加'); add.type = 'button';
+  add.onclick = () => { const e = list.querySelector('.empty'); if (e) e.remove(); list.append(projectEditor({}, true)); };
+  const msg = el('div', 'msg'); const save = el('button', 'allow', 'このワーカーの案件を保存'); save.type = 'button';
+  save.onclick = () => {
+    const rows = [...list.querySelectorAll('.proj-edit')].map(x => x._get());
+    if (rows.some(x => !x.id || !x.path)) { msg.className = 'msg ng'; msg.textContent = '案件 ID とフォルダは必須です'; return; }
+    save.disabled = true; msg.className = 'msg'; msg.textContent = '保存中…';
+    api('/api/settings/worker', { worker: w.id, projects: rows }).then(res => {
+      save.disabled = false;
+      if (!res.ok) { msg.className = 'msg ng'; msg.textContent = (res.error === 'worker_offline' ? 'ワーカーがオフラインです。' : '保存できませんでした: ') + (res.message || res.error || res.http); return; }
+      list.textContent = ''; for (const p of res.projects) list.append(projectEditor(p, false));
+      if (!res.projects.length) list.append(el('div', 'role empty', '案件はまだありません'));
+      const lines = ['保存しました。新しい依頼から反映します。'];
+      if ((res.pm_restart_needed || []).length) lines.push(`動いている PM（${res.pm_restart_needed.join('、')}）の説明・進め方・追加指示は、その PM を停止して次に起動したときに反映します`);
+      msg.className = 'msg ok'; msg.textContent = lines.join('\n'); refreshState();
+    });
+  };
+  const b = el('div', 'btns'); b.append(add, save);
+  fs.append(list, b);
+  c.append(head, fs, el('div', 'hint', '動いている PM や子があるうちは、その案件の削除とフォルダの変更はできません（先にスレッド一覧で停止します）。案件 ID とフォルダは必須で、フォルダ同士の入れ子は登録できません'), msg);
+  root.append(c);
+}
+function refreshSettingsConn(worker, connected) {
+  const c = document.querySelector(`#settings .card[data-worker="${CSS.escape(worker)}"]`); if (!c) return;
+  c.querySelector('fieldset').disabled = !connected;
+  c.querySelector('.dot').className = 'dot' + (connected ? ' on' : '');
+  c.querySelector('.conntext').textContent = connected ? '接続中（最新の内容は「再読み込み」で取得）' : 'ワーカーがオフライン。Mac でワーカーが動いているときに編集できます';
+}
 
 // ------------------------------------------------------------ connection and input
 function connect() {

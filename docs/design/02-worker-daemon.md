@@ -159,8 +159,11 @@ PM 自身の `reply` は直接処理でも委任でも、**秘書起点の依頼
 | `session_stop` | `session` | `/exit` を送り、10 秒で終わらなければ tmux を終了する。強制終了は同じ起動回のセッションにだけ行う（停止直後の再開は同じ tmux 名を使うため） | `{status}` |
 | `approval_answer` | `session`, `request_id`, `behavior` | ブリッジ経由で判定を Claude Code へ書く | `{status}` |
 | `terminal_answer` | `session`, `prompt_id`, `option` | 画面を読み直し、同じダイアログが出ていれば選択キーを送る | `{status}` |
+| `config_set` | `projects` | 設定画面から `worker.json` の `projects` を置き換える（01 §25）。下の「使用中の案件の保護」を参照 | `{projects, pm_restart_needed}` |
 
 `session_send`、`pm_send`、`thread_direct_send` の本文は tmux のキー入力ではなくチャネル通知で届けるので、端末コマンドとは解釈されない。`thread_direct_send` も Claude Code の文章指示であり、端末の `/clear` などのスラッシュコマンドを遠隔実行する機能ではない。
+
+**使用中の案件の保護（`config_set`、2026-10-16）**: 動いているセッション（PM または子で、`stopped` / `exited` / `failed` 以外）がある案件の削除とフォルダの変更は `project_in_use` で断り、どのセッションかを返す（fail closed）。書き込みの前にフォルダの存在、ID の重複、同じフォルダや入れ子のフォルダを確かめ、どれかが駄目なら `worker.json` には何も書かない。成功したらメモリ上の `projects` と `workspaces.json`（書込権の対象一覧）を差し替える。削除した案件や、フォルダを変えた案件の停止済みセッションは再開しない（`session_resume` は `invalid_state` または `not_found`）。古いフォルダはもう書込権で守られていないためで、PM への次の依頼では新しいフォルダに新しい PM を作る。
 
 ### 4.1 案件 PM 専用のローカルツール（新設）
 

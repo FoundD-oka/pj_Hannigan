@@ -462,17 +462,23 @@ export function loadHubConfig(home = hanniganHome()): LoadedHubConfig {
 
 // One workspace = one write lease (02 §18): two projects must not share a folder or sit one inside the
 // other, because a write in the inner folder would only be checked against one of the two leases.
-export function checkProjectPaths(projects: { id: string; path: string }[], file = 'worker.json'): void {
+// the first pair of projects whose (canonical) folders are the same or nested, or null
+export function overlappingProjects<P extends { id: string; path: string }>(projects: P[]): [P, P] | null {
   const inside = (a: string, b: string) => a === b || a.startsWith(b.endsWith(sep) ? b : b + sep)
   for (let i = 0; i < projects.length; i++)
     for (let j = i + 1; j < projects.length; j++) {
       const a = projects[i]!
       const b = projects[j]!
-      if (inside(a.path, b.path) || inside(b.path, a.path))
-        throw new ConfigError(
-          `${file}: projects "${a.id}" and "${b.id}" use the same or nested folders (after resolving links). Give each project its own folder that is not inside another project's folder.`,
-        )
+      if (inside(a.path, b.path) || inside(b.path, a.path)) return [a, b]
     }
+  return null
+}
+export function checkProjectPaths(projects: { id: string; path: string }[], file = 'worker.json'): void {
+  const hit = overlappingProjects(projects)
+  if (hit)
+    throw new ConfigError(
+      `${file}: projects "${hit[0].id}" and "${hit[1].id}" use the same or nested folders (after resolving links). Give each project its own folder that is not inside another project's folder.`,
+    )
 }
 
 export type LoadedWorkerConfig = WorkerConfig & {

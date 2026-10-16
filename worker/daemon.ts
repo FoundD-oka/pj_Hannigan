@@ -2,6 +2,7 @@
 // Worker daemon: connects out to the hub, runs Claude Code sessions in tmux, relays results.
 // docs/design/02-worker-daemon.md
 import { z } from 'zod'
+import { readFileSync } from 'fs'
 import { join } from 'path'
 import { ConfigError, loadWorkerConfig } from '../shared/config.ts'
 import {
@@ -13,12 +14,14 @@ import {
   type HubCommand,
   type WorkerEvent,
   type WorkerHello,
+  type ConfigSetResult,
   type WorkerResult,
 } from '../shared/protocol.ts'
 import { ensureSecret, readSecret, secretPath } from '../shared/secrets.ts'
 import { SessionManager, TERMINAL_STATES, type BridgeSocket, type SessionRecord } from '../shared/session-manager.ts'
 import type { SessionState } from '../shared/protocol.ts'
-import { Backoff, ensureDir, log } from '../shared/util.ts'
+import { Backoff, ensureDir, log, writeJsonAtomic } from '../shared/util.ts'
+import { planConfigSet, projectInfo } from './config-set.ts'
 import { Dispatcher } from './dispatch.ts'
 import { BaselineStore, LeaseManager, osVerifier } from './lease.ts'
 import { Outbox } from './outbox.ts'
@@ -58,8 +61,8 @@ function emit(e: WorkerEvent): void {
   if (hub && hubReady) hub.send(JSON.stringify(m))
 }
 
-const projectInfos = () =>
-  cfg.projects.map(p => ({ id: p.id, description: p.description, pm_enabled: p.pm.enabled, execution_policy: p.pm.execution_policy }))
+// folders only in command results, never in events (they are recorded in the hub's event log)
+const projectInfos = (withPath = false) => cfg.projects.map(p => projectInfo(p, withPath))
 
 function inventory(): void {
   emit({ kind: 'inventory', projects: projectInfos(), sessions: manager.list() })
@@ -121,7 +124,7 @@ async function execute(c: HubCommand): Promise<unknown> {
   if (!COMMANDS.includes(c.name)) throw new CommandError('unknown_command', `unknown command ${String(c.name)}`)
   switch (c.name) {
     case 'list':
-      return { projects: projectInfos(), sessions: manager.list() }
+      return { projects: projectInfos(true), sessions: manager.list() }
     case 'session_create': {
       const a = parseArgs(A.session_create, c.args)
       const p = cfg.projects.find(x => x.id === a.project)
@@ -153,7 +156,34 @@ async function execute(c: HubCommand): Promise<unknown> {
       const a = parseArgs(A.terminal_answer, c.args)
       return { status: manager.answerTerminal(a.session, a.prompt_id, a.option) }
     }
+    case 'config_set':
+      return configSet(c.args)
   }
+}
+
+// settings screen (01 §25): replace projects[] in worker.json and in memory without a restart
+function configSet(args: unknown): ConfigSetResult {
+  const file = join(home, 'worker.json')
+  let raw: unknown
+  try {
+    raw = JSON.parse(readFileSync(file, 'utf8'))
+  } catch (e) {
+    throw new CommandError('internal', `worker.json を読めませんでした: ${(e as Error).message}`)
+  }
+  const sessions = manager.records().map(s => ({ key: s.key, project: s.project, role: s.role, name: s.name, state: s.state }))
+  const plan = planConfigSet(args, cfg.projects, sessions, raw)
+  try {
+    writeJsonAtomic(file, plan.file)
+  } catch (e) {
+    throw new CommandError('internal', `worker.json を保存できませんでした（設定は変わっていません）: ${(e as Error).message}`)
+  }
+  // the router, the trust check and the launch guard all read cfg.projects at use time
+  cfg.projects = plan.projects
+  leases.writeWorkspaces(cfg.projects.map(p => p.path))
+  log(C, 'projects updated from the settings screen', { projects: cfg.projects.length })
+  inventory()
+  dispatcher.pump()
+  return { projects: projectInfos(true), pm_restart_needed: plan.pmRestartNeeded }
 }
 
 async function runCommand(c: HubCommand): Promise<WorkerResult> {
@@ -235,6 +265,7 @@ const manager: SessionManager = new SessionManager({
   bridgeToken,
   serverName: 'hannigan',
   maxSessions: cfg.max_sessions,
+  resumeBlocked: s => router.resumeBlocked(s),
   isTrustedDir: dir => cfg.projects.some(p => p.path === dir),
   emit,
   setupFor: s => router.setupFor(s),
