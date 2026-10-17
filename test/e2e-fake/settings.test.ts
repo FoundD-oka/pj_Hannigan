@@ -3,7 +3,7 @@
 // usable by the secretary without a restart and survives a worker restart. Fail-closed refusals: nested folders,
 // a project with a running PM, a worker that is offline, fields the screen may not change.
 import { afterAll, beforeAll, describe, expect, test } from 'bun:test'
-import { mkdirSync, readFileSync, realpathSync } from 'fs'
+import { mkdirSync, readdirSync, readFileSync, realpathSync } from 'fs'
 import { join } from 'path'
 import { Harness, type Ev } from '../harness.ts'
 
@@ -172,4 +172,59 @@ describe('settings screen (hub + worker + fake claude)', () => {
     expect(zero.status).toBe(400)
     expect(hubFile().offline_queue.ttl_minutes).toBe(90)
   })
+
+  test('persona: saved to hub.json, shown as the name everywhere, and written into the instructions of the next secretary', async () => {
+    const g0 = (await h.api('/api/settings')).json
+    expect(g0.hub.secretary.persona).toEqual({ name: 'Hannigan', character: '', user_name: null, language: '', verbosity: 'short' })
+    expect(g0.hub.secretary.instructions_preview).toContain('You are "Hannigan"')
+    expect((await h.api('/api/state')).json.settings.secretary_name).toBe('Hannigan')
+
+    const s0 = h.lastSeq()
+    const r = await h.api('/api/settings/hub', {
+      secretary: {
+        persona: { name: 'ハニガン', character: '敬語で短く。結論を先に。', user_name: '健さん', language: '日本語', verbosity: 'normal' },
+        routing_notes: '案件 p1 は自宅の作業',
+        extra_instructions: '',
+      },
+    })
+    expect(r.status).toBe(200)
+    expect(r.json.ok).toBe(true)
+    expect(r.json.applies.now).toEqual(['secretary.persona.name'])
+    expect(r.json.applies.next_secretary_start).toEqual(
+      expect.arrayContaining(['secretary.persona.name', 'secretary.persona.character', 'secretary.persona.user_name', 'secretary.persona.language', 'secretary.persona.verbosity', 'secretary.routing_notes']),
+    )
+    const ev = await h.waitEvent(e => e.kind === 'settings_changed' && e.scope === 'hub' && e.seq > s0, s0, T, 'settings_changed persona')
+    expect(JSON.stringify(ev)).not.toContain('敬語') // field names only, never the values
+    const f = hubFile()
+    expect(f.secretary.persona).toEqual({ name: 'ハニガン', character: '敬語で短く。結論を先に。', user_name: '健さん', language: '日本語', verbosity: 'normal' })
+    expect(f.secretary.routing_notes).toBe('案件 p1 は自宅の作業')
+    expect(f.secretary.contexts).toEqual(g0 && hubFile().secretary.contexts) // untouched
+    const g1 = (await h.api('/api/settings')).json
+    expect(g1.hub.secretary.persona.name).toBe('ハニガン')
+    expect(g1.hub.secretary.instructions_preview).toContain('You are "ハニガン"')
+    expect(g1.hub.secretary.instructions_preview).toContain('案件 p1 は自宅の作業')
+    const st = (await h.api('/api/state')).json
+    expect(st.settings.secretary_name).toBe('ハニガン')
+    expect(st.workers.find((w: any) => w.worker === '_secretary').display_name).toBe('ハニガン')
+
+    // a new conversation starts a new secretary: its channel instructions carry the persona
+    const s1 = h.lastSeq()
+    await h.send('who are you', 'conv-persona')
+    await h.waitEvent(e => e.kind === 'secretary_reply' && e.conv_id === 'conv-persona' && String(e.text).startsWith('hello: who are you'), s1, T, 'new secretary replied')
+    const files = readdirSync(h.fakeState).filter(n => n.startsWith('instructions-'))
+    const texts = files.map(n => readFileSync(join(h.fakeState, n), 'utf8'))
+    const fresh = texts.filter(x => x.includes('You are "ハニガン"'))
+    expect(fresh.length).toBe(1)
+    expect(fresh[0]).toContain('Your character (how you speak and behave; keep it in every reply):\n敬語で短く。結論を先に。')
+    expect(fresh[0]).toContain('Address the person as "健さん".')
+    expect(fresh[0]).toContain('Reply in 日本語')
+    expect(fresh[0]).toContain('案件 p1 は自宅の作業')
+    // the secretary of the older conversation still runs on the old instructions (reported, not swapped silently)
+    expect(texts.some(x => x.includes('You are "Hannigan"'))).toBe(true)
+    // refused by name; nothing written
+    const bad = await h.api('/api/settings/hub', { secretary: { persona: { name: '' } } })
+    expect(bad.status).toBe(400)
+    expect(bad.json.message).toContain('秘書の名前')
+    expect(hubFile().secretary.persona.name).toBe('ハニガン')
+  }, T)
 })

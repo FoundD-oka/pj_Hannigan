@@ -106,7 +106,7 @@ function workerConn(id: string): WorkerConn {
 for (const w of cfg.workers) workerConn(w.id)
 
 const displayName = (id: string) =>
-  id === SECRETARY ? '秘書' : (cfg.workers.find(w => w.id === id)?.display_name ?? id)
+  id === SECRETARY ? cfg.secretary.persona.name : (cfg.workers.find(w => w.id === id)?.display_name ?? id)
 const isConnected = (id: string) => !!workers.get(id)?.connected
 const knownWorker = (id: string) => id !== SECRETARY && (cfg.workers.some(w => w.id === id) || workers.has(id))
 const strip = <T extends { kind: string }>(e: T): Omit<T, 'kind'> => {
@@ -1227,6 +1227,7 @@ function stateSnapshot() {
     offline_requests: queue.list().filter(x => ACTIVE_QUEUE.includes(x.state)).map(offlineView),
     leases: [...leases.values()],
     settings: {
+      secretary_name: cfg.secretary.persona.name,
       offline_queue: cfg.offline_queue.enabled,
       ttl_minutes: cfg.offline_queue.ttl_minutes,
       threads: cfg.webchat.threads.enabled,
@@ -1261,7 +1262,14 @@ async function settingsView() {
   return {
     paths_known,
     hub: {
-      secretary: { contexts: { max_active: cfg.secretary.contexts.max_active, idle_minutes: cfg.secretary.contexts.idle_minutes } },
+      secretary: {
+        persona: { ...cfg.secretary.persona },
+        routing_notes: cfg.secretary.routing_notes,
+        extra_instructions: cfg.secretary.extra_instructions,
+        contexts: { max_active: cfg.secretary.contexts.max_active, idle_minutes: cfg.secretary.contexts.idle_minutes },
+        // the instructions a secretary started now would get (read-only preview; what running ones have may be older)
+        instructions_preview: secretaryInstructions(cfg),
+      },
       offline_queue: {
         enabled: cfg.offline_queue.enabled,
         ttl_minutes: cfg.offline_queue.ttl_minutes,
@@ -1296,6 +1304,10 @@ function saveHubSettings(input: unknown): Response {
   }
   // apply in place: cfg keeps its resolved paths, only the edited fields change
   const n = plan.config
+  // the persona and the free-text guidance reach a secretary through setupFor() at its next start (resume included)
+  cfg.secretary.persona = { ...n.secretary.persona }
+  cfg.secretary.routing_notes = n.secretary.routing_notes
+  cfg.secretary.extra_instructions = n.secretary.extra_instructions
   cfg.secretary.contexts.max_active = n.secretary.contexts.max_active
   cfg.secretary.contexts.idle_minutes = n.secretary.contexts.idle_minutes
   secretaries.setMaxSessions(n.secretary.contexts.max_active)

@@ -173,6 +173,17 @@
 - **試験:** 単体 `worker-config-set.test.ts`、`hub-settings.test.ts`、通し `e2e-fake/settings.test.ts`。
 - **残した課題:** 設定画面を開くと、ホーム外の案件フォルダの場所がハブを通る。Phase 4 で VPS に移すときに扱いを見直す。
 
+## 3g 秘書のキャラ設定（Phase 5 前倒し）— 2026-10-17
+
+- **目的:** 7 日間の日常運用を、プロジェクト名と同じ「Hannigan」という名前の相手と話す形で始めるため、Phase 5 の設定画面から「秘書の使い分け（振り分けの判断基準）」と、設計書に無かった秘書の人格設定を前倒しした。
+- **設定（01 §3.1）:** `hub.json` に `secretary.persona`（`name` 既定 `Hannigan`、`character`、`user_name`、`language`、`verbosity`）と `secretary.routing_notes` を追加した。全部に既定値があるので版は 8 のまま、移行は無い。`secretary.extra_instructions` は既存のまま画面に出した。
+- **指示文:** 人格の段落を冒頭に置き、振り分けとツールの規則はその後ろに固定で続ける。キャラ設定の文章は振り分け・会話分離・結果の推測禁止の規則を変えない。`routing_notes` は振り分け手順の 1 番目の直後に入る。
+- **表示:** WebChat の見出し、返信の名札、スレッド一覧、承認カードの送り元は `persona.name` を使う（`/api/state` の `settings.secretary_name`）。「秘書」の固定文言は無くした。
+- **反映の時期:** 指示文はセッション起動時（再開を含む）に渡すので次の秘書から。画面は保存後に動いている秘書の件数を示し、すぐ反映するなら停止して次の発言で再開する手順を案内する。`GET /api/settings` に `instructions_preview`（次に起動する秘書に渡る全文）を足した。
+- **fail closed:** 名前の空、40 文字超、キャラ設定・判断基準の 4000 文字超、`verbosity` の不正値、未知の項目は項目名つきで断り、何も書かない。出来事 `settings_changed` には項目名だけを記録し、キャラ設定の本文は入れない。
+- **試験:** 単体 `hub-secretary.test.ts`（新設。指示文の組み立て）、`hub-settings.test.ts`、`config.test.ts` に追加。通し `e2e-fake/settings.test.ts` に、保存 → `hub.json` → 表示名 → 新しい会話の秘書が受け取る指示文（偽 Claude が `instructions-<session>.txt` に書き出す）までの確認を追加。本物の Claude では未確認。
+- **変えていないこと:** PM と子の指示文（案件ごとの `pm.extra_instructions` は従来どおり）。秘書の起動条件（`secretary.session`）とモデルは画面から変えない。
+
 ## 変更していないこと
 
 - 既存の Channels/ブリッジ/セッション管理/イベント・承認プロトコルの基本設計。

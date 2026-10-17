@@ -153,6 +153,8 @@ client.setNotificationHandler(
 await client.connect(
   new StdioClientTransport({ command: server.command, args: server.args, env: { ...env, ...server.env, CLAUDE_CODE_SESSION_ID: sessionId } }),
 )
+// the channel's instructions, as the real Claude Code would receive them, for tests of what the setup contains
+writeFileSync(join(STATE, `instructions-${sessionId}.txt`), client.getInstructions() ?? '')
 const tools = (await client.listTools()).tools.map(t => t.name)
 role = tools.includes('session_create') ? 'secretary' : tools.includes('task_create') ? 'pm' : 'worker'
 roleKnown = true

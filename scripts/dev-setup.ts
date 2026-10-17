@@ -40,7 +40,15 @@ if (!existsSync(hubFile) || force) {
   // offline_queue is enabled for local testing only; the OSS default stays false
   const hub = {
     version: HUB_CONFIG_VERSION,
-    secretary: { autostart: false, contexts: { mode: 'per_conversation', max_active: 2 }, shared_ledger: { enabled: true } },
+    secretary: {
+      autostart: false,
+      // who the person talks to (01 §3.1); edited in WebChat 設定. The name is also the WebChat's title.
+      persona: { name: 'Hannigan', character: '', user_name: null, language: '', verbosity: 'short' },
+      routing_notes: '',
+      extra_instructions: '',
+      contexts: { mode: 'per_conversation', max_active: 2 },
+      shared_ledger: { enabled: true },
+    },
     webchat: { conversation_scope: 'conversation', threads: { enabled: true, direct_send_enabled: true } },
     offline_queue: { enabled: true, ttl_minutes: 1440, max_pending_per_worker: 100 },
     discord: { enabled: false },

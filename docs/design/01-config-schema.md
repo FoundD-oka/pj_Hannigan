@@ -56,6 +56,12 @@ $HANNIGAN_HOME/
 | `secretary.shared_ledger.enabled` | bool | `true` | 案件・進捗・タスク情報の構造化台帳を利用する（Q6/B） |
 | `secretary.shared_ledger.events_path` | string | `$HANNIGAN_HOME/hub/work-items.jsonl` | 構造化された案件更新イベントの記録先。会話ログとは分離 |
 | `secretary.extra_instructions` | string | `""` | 秘書への追加指示。チャネルの `instructions` の末尾に足す |
+| `secretary.persona.name` | string | `Hannigan` | 秘書の名前。WebChat の見出しと返信の名札に使い、秘書自身も自分の名前として名乗る。1〜40 文字（3.1 節。2026-10-17 追加） |
+| `secretary.persona.character` | string | `""` | キャラ設定。性格、口調、話し方、やらないこと。毎回の返信で守らせる文章。4000 文字以内 |
+| `secretary.persona.user_name` | string \| null | `null` | 利用者の呼び名。`null` なら呼び名を使わない。40 文字以内 |
+| `secretary.persona.language` | string | `""` | 返信の言語。空なら相手の言語に合わせる。40 文字以内 |
+| `secretary.persona.verbosity` | enum | `short` | 返信の長さ。`short` / `normal` / `detailed` |
+| `secretary.routing_notes` | string | `""` | 振り分けの判断基準。どのワーカー・案件に頼むかの決め方で、`workers[].role` と合わせて秘書の指示文の振り分けの節に入る。4000 文字以内（Phase 5 の「秘書の使い分け」を前倒し） |
 | `workers` | array | `[]` | 秘書に教えるワーカーの一覧（下表） |
 | `workers[].id` | string | 必須 | ワーカー ID。`worker.json` の `worker_id` と一致させる。英数字、`-`、`_` で 1〜32 文字 |
 | `workers[].display_name` | string | id と同じ | WebChat と秘書への表示名 |
@@ -90,6 +96,22 @@ $HANNIGAN_HOME/
 | `permission_mode` | `manual` |
 | `builtin_tools` | `""`（組み込みツールなし。`--tools ""` を渡す） |
 | `allowed_tools` | `["mcp__hannigan"]`（ハブのツールは承認なしで呼べる） |
+
+### 3.1 秘書のキャラ設定（`secretary.persona`。2026-10-17 追加、Phase 5 前倒し）
+
+秘書は利用者が WebChat で話す相手なので、名前と人格を設定で持つ。ハブは `secretaryInstructions()` で次の順に指示文を組む。人格の部分は冒頭に置き、振り分けとツールの規則はその後ろに固定で続く。キャラ設定がどう書かれていても、振り分けの規則、依頼元の会話にだけ返す規則、結果を推測しない規則は変わらない。
+
+1. 冒頭: `You are "<name>"` と、1 会話専任で作業は PM に任せる役割
+2. `character` があれば「Your character」の段落、`user_name` があれば呼び名の指示
+3. 受信する出来事の種類（固定）
+4. ワーカーと役割の一覧（`workers[]`）
+5. 振り分けの手順（固定）。1 番目の手順の直後に `routing_notes` を「Routing guidance from the person」として差し込む
+6. 返信の規則（固定）、`language`、`verbosity` に応じた文
+7. `extra_instructions`
+
+キーは全部に既定値があるので、`persona` を持たない v8 の `hub.json` はそのまま読める。版は 8 のままとし、移行は要らない。既定の名前は `Hannigan` で、`scripts/dev-setup.ts` は初回起動時に既定値を書いた `persona` を `hub.json` に残す。
+
+反映の時期: 指示文は秘書セッションの起動時（再開を含む）にチャネルの `setup` で渡すので、変更は次に起動する秘書から入る。動いている秘書は古い指示文のままで、設定画面はその件数を表示し、すぐ反映するには一覧で「停止」して次の発言で再開するよう案内する。名前だけは画面の表示にすぐ反映する。
 
 ## 4. worker.json
 
@@ -492,9 +514,10 @@ Phase 5 の設定画面のうち、7 日間の日常運用（Phase 3 の出口�
 | hub.json | `secretary.contexts.idle_minutes` | すぐ（次の放置確認から） |
 | hub.json | `offline_queue.enabled` / `ttl_minutes` / `max_pending_per_worker` | すぐ。新しく受け付ける依頼から。保留中の依頼の `expires_at` は変えない（Q13/C） |
 | hub.json | `workers[].display_name` / `workers[].role` | 画面の表示はすぐ。秘書の指示文には次に秘書が起動したときに入る |
+| hub.json | `secretary.persona.*`、`secretary.routing_notes`、`secretary.extra_instructions`（3.1 節。2026-10-17 追加） | 名前は画面の表示にすぐ。指示文には次に秘書が起動したとき（再開を含む）に入る。`GET /api/settings` は次に起動する秘書に渡る指示文の全文を `instructions_preview` で返し、画面でプレビューできる |
 | worker.json | `projects[]`（`id`、`path`、`description`、`pm.enabled`、`pm.execution_policy`、`pm.extra_instructions`） | すぐ。新しい依頼から使える。動いている PM の指示文（説明・進め方・追加指示）は、その PM を止めて次に起動したときに入る |
 
-`pm.autostart` は画面に出さない（未実装のため）。画面が送らない項目は今の値を引き継ぐ。
+`pm.autostart` は画面に出さない（未実装のため）。秘書の `session`（起動条件、モデル）は引き続き画面から変えない。画面が送らない項目は今の値を引き継ぐ。
 
 **画面から変えられない項目**: `listen`、`public_url`、秘密情報（`secrets/` の WebChat トークン、ワーカー鍵など）、ワーカーの追加と削除（鍵の発行を伴うため）、`discord.*`、セッションの起動条件（`session` / `pm_session` / `secretary.session`）、`max_sessions` などその他の項目。ハブはこれらを含む要求を項目名つきで断る。変えるときはファイルを編集して再起動する。
 

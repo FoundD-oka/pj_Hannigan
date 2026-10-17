@@ -172,6 +172,8 @@ try {
   if (SETTINGS_ONLY) {
     await cdp.eval(`document.getElementById('settingsBtn').click()`)
     await Bun.sleep(1500)
+    await cdp.shot('16-settings-persona') // the persona card is the first thing in 設定
+    await cdp.eval(`(() => { const h = [...document.querySelectorAll('#settings h2')].find(x => /ハブ/.test(x.textContent)); h && h.scrollIntoView({ block: 'start' }); scrollBy(0, -240) })()`)
     await cdp.shot('11-settings-hub')
     await cdp.eval(`(() => { const h = [...document.querySelectorAll('#settings h2')].find(x => /ワーカー/.test(x.textContent)); h && h.scrollIntoView({ block: 'start' }); scrollBy(0, -60) })()`)
     await cdp.shot('11-settings-worker')

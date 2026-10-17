@@ -65,6 +65,43 @@ test('workers: display name and role only, no adding / removing', () => {
   expect((p.file.workers as any)[0]).toEqual({ id: 'local', display_name: null, role: '' })
 })
 
+test('persona and guidance: merged into the file, applied at the next secretary start, name also shown now', () => {
+  const p = planHubSettings(
+    {
+      secretary: {
+        persona: { name: ' ハニガン ', character: '敬語', user_name: '', language: '日本語', verbosity: 'normal' },
+        routing_notes: '仕事は office',
+        extra_instructions: 'x',
+      },
+    },
+    raw(),
+    current(),
+  )
+  expect((p.file.secretary as any).persona).toEqual({ name: 'ハニガン', character: '敬語', user_name: null, language: '日本語', verbosity: 'normal' })
+  expect((p.file.secretary as any).routing_notes).toBe('仕事は office')
+  expect((p.file.secretary as any).extra_instructions).toBe('x')
+  expect((p.file.secretary as any).contexts).toEqual({ max_active: 2 }) // untouched
+  expect(p.config.secretary.persona.name).toBe('ハニガン')
+  expect(p.changed.sort()).toEqual(
+    ['secretary.persona.name', 'secretary.persona.character', 'secretary.persona.language', 'secretary.persona.verbosity', 'secretary.routing_notes', 'secretary.extra_instructions'].sort(),
+  )
+  expect(p.applies.now).toEqual(['secretary.persona.name'])
+  expect(p.applies.next_secretary_start.sort()).toEqual(p.changed.sort())
+  expect(p.applies.restart).toEqual([])
+  // sending the current values again changes nothing
+  const same = planHubSettings({ secretary: { persona: { name: 'Hannigan', verbosity: 'short' }, extra_instructions: 'keep me' } }, raw(), current())
+  expect(same.changed).toEqual([])
+})
+
+test('persona: empty name, overlong fields and an unknown verbosity are refused by name', () => {
+  expect(err(() => planHubSettings({ secretary: { persona: { name: '  ' } } }, raw(), current()))).toContain('秘書の名前')
+  expect(err(() => planHubSettings({ secretary: { persona: { name: 'a'.repeat(41) } } }, raw(), current()))).toContain('40 文字')
+  expect(err(() => planHubSettings({ secretary: { persona: { verbosity: 'loud' } } }, raw(), current()))).toContain('返信の長さ')
+  expect(err(() => planHubSettings({ secretary: { persona: { character: 'a'.repeat(4001) } } }, raw(), current()))).toContain('キャラ設定')
+  expect(err(() => planHubSettings({ secretary: { persona: { mood: 'x' } } }, raw(), current()))).toContain('secretary.persona.mood')
+  expect(err(() => planHubSettings({ secretary: { routing_notes: 'a'.repeat(4001) } }, raw(), current()))).toContain('振り分けの判断基準')
+})
+
 test('refuses a hub.json of another version', () => {
   expect(err(() => planHubSettings({}, { version: 1 }, current()))).toContain('version')
 })

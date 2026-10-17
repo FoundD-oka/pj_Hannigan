@@ -113,6 +113,18 @@ export const HubConfigSchema = z.object({
           events_path: z.string().nullable().default(null), // null -> $HANNIGAN_HOME/hub/work-items.jsonl
         })
         .prefault({}),
+      // 01 §3.1: who the secretary is for the person. Added 2026-10-17 (Phase 5 brought forward); all keys default,
+      // so a v8 file without `persona` keeps loading unchanged.
+      persona: z
+        .object({
+          name: z.string().trim().min(1).max(40).default('Hannigan'),
+          character: z.string().max(4000).default(''),
+          user_name: z.string().trim().max(40).nullable().default(null),
+          language: z.string().trim().max(40).default(''), // '' -> the language the person uses
+          verbosity: z.enum(['short', 'normal', 'detailed']).default('short'),
+        })
+        .prefault({}),
+      routing_notes: z.string().max(4000).default(''), // how to pick a worker / project (Phase 5 「振り分けの判断基準」)
       extra_instructions: z.string().default(''),
     })
     .prefault({}),

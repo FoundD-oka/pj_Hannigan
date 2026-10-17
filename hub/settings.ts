@@ -10,9 +10,23 @@ const posInt = (label: string) =>
   z.number({ error: `${label}は 1 以上の整数で指定してください` }).int(`${label}は 1 以上の整数で指定してください`).positive(`${label}は 1 以上の整数で指定してください`)
 
 // what the screen may send; anything else (listen, public_url, secrets, discord, ...) is refused by name
+const text = (label: string, max: number) => z.string().max(max, `${label}は ${max} 文字以内にしてください`)
+
 const Input = z.strictObject({
   secretary: z
     .strictObject({
+      // 01 §3.1 persona: who the secretary is for the person
+      persona: z
+        .strictObject({
+          name: z.string().trim().min(1, '秘書の名前を入れてください').max(40, '秘書の名前は 40 文字以内にしてください').optional(),
+          character: text('キャラ設定', 4000).optional(),
+          user_name: z.string().trim().max(40, '呼び名は 40 文字以内にしてください').nullable().optional(),
+          language: z.string().trim().max(40, '返信の言語は 40 文字以内にしてください').optional(),
+          verbosity: z.enum(['short', 'normal', 'detailed'], { error: '返信の長さは short / normal / detailed のどれかにしてください' }).optional(),
+        })
+        .optional(),
+      routing_notes: text('振り分けの判断基準', 4000).optional(),
+      extra_instructions: text('秘書への追加指示', 8000).optional(),
       contexts: z
         .strictObject({
           max_active: posInt('秘書の同時起動数').max(64, '秘書の同時起動数は 64 以下にしてください').optional(),
@@ -86,6 +100,21 @@ export function planHubSettings(input: unknown, raw: unknown, current: HubConfig
     if (v !== was) changed.push(name)
   }
 
+  const persona = a.secretary?.persona
+  if (persona) {
+    const o = sub(sub(file, 'secretary'), 'persona')
+    const cur = current.secretary.persona
+    set(o, 'name', persona.name, 'secretary.persona.name', cur.name)
+    set(o, 'character', persona.character, 'secretary.persona.character', cur.character)
+    set(o, 'user_name', persona.user_name === undefined ? undefined : persona.user_name || null, 'secretary.persona.user_name', cur.user_name)
+    set(o, 'language', persona.language, 'secretary.persona.language', cur.language)
+    set(o, 'verbosity', persona.verbosity, 'secretary.persona.verbosity', cur.verbosity)
+  }
+  if (a.secretary?.routing_notes !== undefined || a.secretary?.extra_instructions !== undefined) {
+    const s = sub(file, 'secretary')
+    set(s, 'routing_notes', a.secretary.routing_notes, 'secretary.routing_notes', current.secretary.routing_notes)
+    set(s, 'extra_instructions', a.secretary.extra_instructions, 'secretary.extra_instructions', current.secretary.extra_instructions)
+  }
   const ctx = a.secretary?.contexts
   if (ctx) {
     const c = sub(sub(file, 'secretary'), 'contexts')
@@ -125,9 +154,11 @@ export function planHubSettings(input: unknown, raw: unknown, current: HubConfig
   }
   const applies: Applies = { now: [], next_secretary_start: [], restart: [] }
   for (const f of changed) {
-    if (f.startsWith('workers.')) {
-      // the screen shows the new name at once; secretaries read names and roles in their instructions at start
+    if (f.startsWith('workers.') || f === 'secretary.persona.name') {
+      // the screen shows the new name at once; secretaries read names, roles and the persona in their instructions at start
       applies.now.push(f)
+      applies.next_secretary_start.push(f)
+    } else if (f.startsWith('secretary.persona.') || f === 'secretary.routing_notes' || f === 'secretary.extra_instructions') {
       applies.next_secretary_start.push(f)
     } else applies.now.push(f)
   }

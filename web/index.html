@@ -90,7 +90,7 @@
 </head>
 <body>
 <header>
-  <b>Hannigan</b>
+  <b id="appName">Hannigan</b>
   <span id="conn">未接続</span>
   <span id="pending" title="未回答の承認へ移動"></span>
   <select id="convSel" title="会話の切り替え"></select>
@@ -108,7 +108,7 @@
     <div id="alerts"></div>
     <h3>保留中の依頼</h3><div id="offline"><div class="role">なし</div></div>
     <h3>スレッド（ワーカー → 案件 → PM／子）</h3><div id="threads"></div>
-    <h3>秘書（会話ごと）</h3><div id="secretaries"></div>
+    <h3><span class="secname">秘書</span>（会話ごと）</h3><div id="secretaries"></div>
   </aside>
 </div>
 <footer>
@@ -153,7 +153,15 @@ const el = (tag, cls, text) => { const d = document.createElement(tag); if (cls)
 const short = s => String(s || '').slice(0, 8);
 const STATE_JA = { starting:'起動中', awaiting_terminal:'端末の確認待ち', ready:'待機中', working:'作業中', awaiting_approval:'承認待ち', stopping:'停止中', stopped:'停止', exited:'終了', failed:'失敗' };
 const KIND_JA = { dev_channel_warning:'開発用チャネルの起動確認', workspace_trust:'フォルダの信頼確認', cu_app_approval:'Computer Use のアプリ承認', unknown:'端末の確認' };
-const ROLE_JA = { pm:'PM', task:'子', secretary:'秘書' };
+// the secretary is shown under its configured name (hub.json secretary.persona.name, default Hannigan)
+const secName = () => state.settings.secretary_name || 'Hannigan';
+const ROLE_JA = { pm:'PM', task:'子', get secretary() { return secName(); } };
+function applySecName() {
+  const n = secName();
+  document.title = n; $('appName').textContent = n;
+  for (const x of document.querySelectorAll('.secname')) x.textContent = n;
+  if (view.mode === 'chat') { $('target').textContent = `宛先: ${n}（会話 ${conv}）`; ta.placeholder = `${n}への指示（⌘Enter で送信）`; }
+}
 const DELIV_JA = {
   accepted:'受付', queued:'Mac で配送待ち', worker_queued:'Mac で待機中', resource_wait:'資源待ち', delivered:'届けました（処理完了ではありません）',
   pending_offline:'保留中（Mac オフライン）', dispatching:'配送中', expired:'失効（実行されていません）', delivery_unknown:'配送不明（自動再送しません）',
@@ -161,7 +169,7 @@ const DELIV_JA = {
 };
 const DELIV_CLS = { delivered:'good', expired:'bad', failed:'bad', delivery_unknown:'bad', cancelled:'bad', pending_offline:'wait', queued:'wait', worker_queued:'wait', resource_wait:'wait', dispatching:'wait' };
 const REASON_JA = { cu_busy:'Computer Use 使用中', workspace_busy:'作業フォルダ使用中', resource_unknown:'資源の状態が不明', ttl_elapsed:'期限切れ', deadline_expired:'期限切れ', worker_offline:'ワーカー未接続' };
-const wname = id => id === '_secretary' ? '秘書' : ((state.workers.find(w => w.worker === id) || {}).display_name || id);
+const wname = id => id === '_secretary' ? secName() : ((state.workers.find(w => w.worker === id) || {}).display_name || id);
 
 function api(path, body) {
   return fetch(path, { method: body ? 'POST' : 'GET', headers: { 'content-type':'application/json', authorization:'Bearer ' + token }, body: body ? JSON.stringify(body) : undefined })
@@ -187,7 +195,7 @@ function renderChat(e) {
   const L = logEl;
   switch (e.kind) {
     case 'user_message': { const d = el('div', 'ev user', e.text); d.append(el('div', 'meta', `${t(e.ts)}`)); append(L, d); break; }
-    case 'secretary_reply': { const d = el('div', 'ev secretary'); d.append(el('div', 'label', '秘書'), document.createTextNode(e.text), el('div', 'meta', t(e.ts))); append(L, d); break; }
+    case 'secretary_reply': { const d = el('div', 'ev secretary'); d.append(el('div', 'label', secName()), document.createTextNode(e.text), el('div', 'meta', t(e.ts))); append(L, d); break; }
     case 'worker_report': {
       const d = el('details', 'ev worker'); const s = el('summary', null, `${e.worker_name || e.worker} / ${e.project} の${ROLE_JA[e.role] || ''}からの報告 ${t(e.ts)}${e.request_id ? ' · ' + e.request_id : ''}`);
       d.append(s, el('div', null, e.text), el('div', 'meta', `session ${short(e.session)}`)); append(L, d); break; }
@@ -199,7 +207,7 @@ function renderChat(e) {
       if (card) { card.classList.add('closed'); const b = card.querySelector('.btns'); if (b) b.textContent = closedText(e); }
       break; }
     case 'approval_answered': { const card = $('ap-' + e.approval_id); if (card && !e.ok) { const b = card.querySelector('.btns'); if (b) b.textContent = '送信できませんでした: ' + (e.error || ''); } break; }
-    case 'session_state': sys(L, `${t(e.ts)} ${wname(e.worker)} / ${e.worker === '_secretary' ? 'この会話の秘書' : e.project}: ${STATE_JA[e.state] || e.state}${e.detail ? '\n' + e.detail : ''}`, e.state === 'failed'); break;
+    case 'session_state': sys(L, `${t(e.ts)} ${wname(e.worker)} / ${e.worker === '_secretary' ? 'この会話の' + secName() : e.project}: ${STATE_JA[e.state] || e.state}${e.detail ? '\n' + e.detail : ''}`, e.state === 'failed'); break;
     case 'worker_link': sys(L, `${t(e.ts)} ${wname(e.worker)}: ${e.connected ? '接続' : '切断'}`, !e.connected); break;
     case 'notice': sys(L, `${t(e.ts)} ${e.text}`, e.level === 'error'); break;
     case 'session_action': sys(L, `${t(e.ts)} ${e.action === 'interrupt' ? 'Esc 送信' : '停止要求'}: ${wname(e.worker)} ${short(e.session)} ${e.ok ? '' : '（失敗）'}`); break;
@@ -302,10 +310,10 @@ function threadItem(e) {
       setTimeout(() => paintDelivery(e.msg_id, { target_delivery: 'accepted', pm_notice_delivery: e.target_role === 'task' ? 'accepted' : 'not_applicable' }, true), 0);
       return d; }
     case 'worker_report': {
-      const d = el('div', 'ev worker'); d.append(el('div', 'label', `${ROLE_JA[e.role] || ''}の返信${e.origin === 'user_direct' ? '（直接投稿への返信）' : e.request_id ? ' · 依頼 ' + e.request_id : ''}`), document.createTextNode(e.text), el('div', 'meta', t(e.ts) + (e.routed ? ' · 秘書へ転送済み' : ''))); return d; }
+      const d = el('div', 'ev worker'); d.append(el('div', 'label', `${ROLE_JA[e.role] || ''}の返信${e.origin === 'user_direct' ? '（直接投稿への返信）' : e.request_id ? ' · 依頼 ' + e.request_id : ''}`), document.createTextNode(e.text), el('div', 'meta', t(e.ts) + (e.routed ? ` · ${secName()}へ転送済み` : ''))); return d; }
     case 'thread_entry': {
       const d = el('div', 'ev entry'); d.append(el('div', 'label', `${{ assistant_message:'発言', tool_summary:'ツール', report:'報告', user_direct:'直接投稿' }[e.entry_kind] || e.entry_kind}`), document.createTextNode(e.text || ''), el('div', 'meta', `${t(e.ts)} · ${e.source}`)); return d; }
-    case 'report_unrouted': return el('div', 'ev sys error', `${t(e.ts)} 依頼元が特定できない報告です（${e.reason}）。秘書には送っていません。要確認`);
+    case 'report_unrouted': return el('div', 'ev sys error', `${t(e.ts)} 依頼元が特定できない報告です（${e.reason}）。${secName()}には送っていません。要確認`);
     case 'task_event': return el('div', 'ev sys', `${t(e.ts)} PM → 子 ${short(e.task_session)}: ${{ created:'作成', sent:'指示', reported:'報告' }[e.action] || e.action}${e.text ? '\n' + e.text : ''}`);
     case 'session_state': return el('div', 'ev sys' + (e.state === 'failed' ? ' error' : ''), `${t(e.ts)} 状態: ${STATE_JA[e.state] || e.state}${e.detail ? '\n' + e.detail : ''}`);
     case 'approval_open': return el('div', 'ev sys', `${t(e.ts)} ${e.type === 'tool' ? '承認待ち' : '端末の確認'}: ${e.title}（会話画面の承認カードで回答）`);
@@ -363,14 +371,14 @@ function showView() {
   else if (chat) {
     th = null; logEl.textContent = '';
     for (const e of events) if (inChat(e)) renderChat(e);
-    $('target').textContent = `宛先: 秘書（会話 ${conv}）`;
-    ta.placeholder = '秘書への指示（⌘Enter で送信）'; ta.disabled = false;
+    $('target').textContent = `宛先: ${secName()}（会話 ${conv}）`;
+    ta.placeholder = `${secName()}への指示（⌘Enter で送信）`; ta.disabled = false;
     scrollTo(0, document.body.scrollHeight);
   } else {
     renderThreadShell();
     const s = findSession(view.worker, view.session) || {};
     const can = state.settings.direct_send !== false && (s.role === 'pm' || (s.role === 'task' && s.pm_session));
-    $('target').textContent = can ? `宛先: ${ROLE_JA[s.role]} ${short(view.session)} へ直接投稿（秘書は介しません）` : '直接投稿できないスレッドです（閲覧のみ）';
+    $('target').textContent = can ? `宛先: ${ROLE_JA[s.role]} ${short(view.session)} へ直接投稿（${secName()}は介しません）` : '直接投稿できないスレッドです（閲覧のみ）';
     ta.placeholder = can ? 'このスレッドへの直接投稿（⌘Enter で送信）' : ''; ta.disabled = !can;
   }
   renderSide();
@@ -381,7 +389,7 @@ let stateTimer = null;
 function refreshState() { clearTimeout(stateTimer); stateTimer = setTimeout(loadState, 300); }
 function loadState() {
   api('/api/state').then(s => {
-    if (!s || !s.workers) return; state = s;
+    if (!s || !s.workers) return; state = s; applySecName();
     const live = new Set(s.approvals.map(a => a.approval_id));
     for (const id of [...openApprovals]) if (!live.has(id)) { openApprovals.delete(id); const c = $('ap-' + id); if (c) { c.classList.add('closed'); const b = c.querySelector('.btns'); if (b && b.querySelector('button')) b.textContent = '閉じました'; } }
     updatePending(); renderSide();
@@ -417,7 +425,7 @@ function renderSide() {
   if (!oq.length) off.append(el('div', 'role', state.settings.offline_queue ? 'なし' : 'なし（オフライン保留は無効）'));
   for (const x of oq) {
     const d = el('div', 'oq');
-    d.append(el('div', null, `${x.kind === 'pm_send' ? '秘書の依頼' : '直接投稿'} → ${wname(x.worker)} / ${x.project || ''}${x.session ? ' ' + short(x.session) : ''}`));
+    d.append(el('div', null, `${x.kind === 'pm_send' ? secName() + 'の依頼' : '直接投稿'} → ${wname(x.worker)} / ${x.project || ''}${x.session ? ' ' + short(x.session) : ''}`));
     d.append(el('div', DELIV_CLS[x.state] ? 'dstate' : 'role', `${DELIV_JA[x.state] || x.state}${x.reason ? ' · ' + (REASON_JA[x.reason] || x.reason) : ''} · 期限 ${dt(x.expires_at)}`));
     if (x.text_preview) d.append(el('div', 'meta', x.text_preview));
     if (x.context_id) d.append(el('div', 'meta', '会話 ' + x.context_id));
@@ -443,7 +451,7 @@ function renderSide() {
   const sec = $('secretaries'); sec.textContent = '';
   for (const c of state.secretaries || []) {
     const row = el('div', 'row' + (c.context_id === conv && view.mode === 'chat' ? ' sel' : ''));
-    const top = el('div'); top.append(el('span', 'tag', '秘書'), el('span', null, '会話 ' + c.context_id), el('span', 'st ' + (c.state || ''), c.state ? (STATE_JA[c.state] || c.state) : '未起動'));
+    const top = el('div'); top.append(el('span', 'tag', secName()), el('span', null, '会話 ' + c.context_id), el('span', 'st ' + (c.state || ''), c.state ? (STATE_JA[c.state] || c.state) : '未起動'));
     row.append(top);
     if (c.waiting) row.append(el('div', 'role', `空き待ち ${c.waiting} 件`));
     if (c.session) row.append(sessionButtons('_secretary', { session: c.session, state: c.state || 'stopped' }));
@@ -456,7 +464,10 @@ $('panelBtn').onclick = () => $('panel').classList.toggle('open');
 
 // ------------------------------------------------------------ settings (hub.json / worker.json through the hub)
 const POLICY_JA = { delegate_only:'子へ委任（PM は計画と確認に専念）', hybrid:'状況で判断（既定）', direct_first:'PM が直接作業を優先' };
+const VERBOSITY_JA = { short:'短く（既定）', normal:'普通', detailed:'詳しく' };
 const FIELD_JA = {
+  'secretary.persona.name':'名前', 'secretary.persona.character':'キャラ設定', 'secretary.persona.user_name':'あなたの呼び名',
+  'secretary.persona.language':'返信の言語', 'secretary.persona.verbosity':'返信の長さ', 'secretary.routing_notes':'振り分けの判断基準', 'secretary.extra_instructions':'追加指示',
   'secretary.contexts.max_active':'秘書の同時起動数', 'secretary.contexts.idle_minutes':'秘書を止めるまでの放置時間',
   'offline_queue.enabled':'オフライン保留', 'offline_queue.ttl_minutes':'保留の期限', 'offline_queue.max_pending_per_worker':'保留の上限',
 };
@@ -479,7 +490,51 @@ function loadSettings() {
     for (const id of Object.keys(r.worker_projects)) if (!r.hub.workers.some(w => w.id === id)) renderWorkerSettings(root, { id, display_name: id, connected: (state.workers.find(x => x.worker === id) || {}).connected }, r.worker_projects[id], (r.paths_known || {})[id]);
   });
 }
+// who the person talks to: name, character, how it addresses them (hub.json secretary.persona, 01 §3.1)
+function renderPersonaSettings(root, r) {
+  const h = r.hub; const p = h.secretary.persona || {};
+  root.append(el('h2', null, `${p.name || 'Hannigan'} のキャラ設定（会話相手の人格）`));
+  const c = el('div', 'card');
+  const name = input('text', p.name || '', { placeholder: 'Hannigan', maxLength: 40 });
+  const chara = input('textarea', p.character || '', { placeholder: '例: 落ち着いた敬語で話す。結論を先に言い、必要なときだけ補足する。冗談は言わない', rows: 6 });
+  const user = input('text', p.user_name || '', { placeholder: '例: 健さん（空なら呼び名を使わない）', maxLength: 40 });
+  const lang = input('text', p.language || '', { placeholder: '例: 日本語（空なら相手の言語に合わせる）', maxLength: 40 });
+  const verb = el('select'); for (const k of Object.keys(VERBOSITY_JA)) { const o = el('option', null, `${VERBOSITY_JA[k]}（${k}）`); o.value = k; if (k === (p.verbosity || 'short')) o.selected = true; verb.append(o); }
+  const routing = input('textarea', h.secretary.routing_notes || '', { placeholder: '例: 仕事の話は worker「office」、個人の開発は「home」。案件名が無いときは聞き返す', rows: 4 });
+  const extra = input('textarea', h.secretary.extra_instructions || '', { placeholder: '上の項目に収まらない指示（任意）', rows: 4 });
+  c.append(
+    field('名前', name, 'WebChat の見出しと返信の名札に使います。本人も自分の名前として名乗ります'),
+    field('キャラ設定', chara, '性格、口調、話し方、やらないこと。毎回の返信で守らせる文章です'),
+    field('あなたの呼び名', user),
+    field('返信の言語', lang),
+    field('返信の長さ', verb),
+    field('振り分けの判断基準', routing, 'どの Mac・どの案件に頼むかの決め方。ワーカーの「役割」と合わせて使います'),
+    field('追加指示（上級）', extra),
+  );
+  const prev = el('details'); prev.append(el('summary', null, '指示文のプレビュー（次に起動する秘書に渡る全文）'));
+  const pre = el('pre', 'hint'); pre.style.whiteSpace = 'pre-wrap'; pre.textContent = h.secretary.instructions_preview || ''; prev.append(pre); c.append(prev);
+  const msg = el('div', 'msg'); const save = el('button', 'allow', 'キャラ設定を保存');
+  save.onclick = () => {
+    const body = { secretary: {
+      persona: { name: name.value.trim(), character: chara.value, user_name: user.value.trim() || null, language: lang.value.trim(), verbosity: verb.value },
+      routing_notes: routing.value, extra_instructions: extra.value,
+    } };
+    save.disabled = true; msg.className = 'msg'; msg.textContent = '保存中…';
+    api('/api/settings/hub', body).then(res => {
+      save.disabled = false;
+      if (!res.ok) { msg.className = 'msg ng'; msg.textContent = '保存できませんでした: ' + (res.message || res.error || res.http); return; }
+      const changed = res.changed || [];
+      const running = (state.secretaries || []).filter(s => s.session && !['stopped','exited','failed'].includes(s.state)).length;
+      const lines = [changed.length ? '保存しました。' : '変更はありませんでした。'];
+      if (changed.length) lines.push('次に秘書が起動したときに反映: ' + changed.map(fieldJa).join('、') + '。' + (running ? `今動いている ${running} 件の会話の秘書は古い設定のままです。すぐ反映するなら右の一覧で「停止」し、次の発言で再開します` : '動いている秘書は無いので、次の発言から反映します'));
+      msg.className = 'msg ok'; msg.textContent = lines.join('\n'); refreshState(); loadSettings();
+    });
+  };
+  const bb = el('div', 'btns'); bb.append(save); c.append(bb, msg);
+  root.append(c);
+}
 function renderHubSettings(root, r) {
+  renderPersonaSettings(root, r);
   root.append(el('h2', null, 'ハブ（hub.json）'));
   const c = el('div', 'card'); const h = r.hub;
   const maxA = input('number', h.secretary.contexts.max_active, { min: 1, max: 64 });

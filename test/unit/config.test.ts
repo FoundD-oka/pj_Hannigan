@@ -40,6 +40,9 @@ test('hub v8 defaults and resolved paths', () => {
   expect(c.secretary.contexts).toMatchObject({ mode: 'per_conversation', max_active: 8, max_pending_per_context: 100, idle_minutes: 30 })
   expect(c.secretary.shared_ledger.enabled).toBe(true)
   expect(c.secretary.extra_instructions).toBe('')
+  // persona (01 §3.1): a file without it loads with the Hannigan defaults
+  expect(c.secretary.persona).toEqual({ name: 'Hannigan', character: '', user_name: null, language: '', verbosity: 'short' })
+  expect(c.secretary.routing_notes).toBe('')
   expect(c.offline_queue).toMatchObject({ enabled: false, ttl_minutes: 1440, max_pending_per_worker: 100 })
   expect(c.log).toEqual({ max_events_replay: 2000, max_thread_history_page: 200 })
   expect(c.webchat).toEqual({ conversation_scope: 'conversation', threads: { enabled: true, direct_send_enabled: true } })

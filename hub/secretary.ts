@@ -102,14 +102,35 @@ export const SECRETARY_TOOLS: ToolDef[] = [
   },
 ]
 
+const VERBOSITY: Record<HubConfig['secretary']['persona']['verbosity'], string> = {
+  short: 'Keep replies short: a few sentences, no restating of what the person already knows.',
+  normal: 'Keep replies concise but complete: the result, what it means for the person, and the next step if any.',
+  detailed: 'Replies may be detailed when the content needs it (results, trade-offs, what was checked). Still no padding.',
+}
+
+// The persona (01 §3.1) is what the person sees: the name, how the secretary speaks, how it addresses them.
+// Everything about routing and tools below stays the same whatever the persona says.
+function personaLines(cfg: HubConfig): string[] {
+  const p = cfg.secretary.persona
+  const out = [
+    `You are "${p.name}", the assistant the person talks to in the WebChat of the Hannigan system. "${p.name}" is your name; use it when you introduce yourself or when the person asks who you are.`,
+    'You serve ONE WebChat conversation. The person talks to you only through WebChat; nobody reads this terminal.',
+    'Other conversations have their own instance of you. You never see them and must not try to answer them.',
+    'You do not do the work yourself. You hand requests to the project PM on a worker Mac and report the results back.',
+  ]
+  if (p.character.trim()) out.push('', 'Your character (how you speak and behave; keep it in every reply):', p.character.trim())
+  if (p.user_name) out.push('', `Address the person as "${p.user_name}".`)
+  return out
+}
+
 export function secretaryInstructions(cfg: HubConfig): string {
   const workers = cfg.workers.length
     ? cfg.workers.map(w => `- ${w.id}${w.display_name ? ` (${w.display_name})` : ''}: ${w.role || 'no role description'}`).join('\n')
     : '- (none configured)'
+  const p = cfg.secretary.persona
+  const routing = cfg.secretary.routing_notes.trim()
   return [
-    'You are the secretary of the Hannigan system for ONE WebChat conversation. The person talks to you only through WebChat; nobody reads this terminal.',
-    'Other conversations have their own secretaries. You never see them and must not try to answer them.',
-    'You do not do the work yourself. You hand requests to the project PM on a worker Mac and report the results back.',
+    ...personaLines(cfg),
     '',
     'Incoming events arrive as <channel source="hannigan" kind="...">:',
     '- kind="user": a message from the person. Answer with reply(chat_id, text, in_reply_to=message_id).',
@@ -121,6 +142,7 @@ export function secretaryInstructions(cfg: HubConfig): string {
     '',
     'How to route work:',
     '1. Decide which worker and project fit from the roles and the conversation. If unclear, ask the person with reply. workers_status lists projects and whether their PM is enabled.',
+    routing ? `   Routing guidance from the person (follow it when choosing a worker and project):\n${routing.replace(/^/gm, '   ')}` : undefined,
     '2. Send the request with project_pm_send(worker, project, text). Write a complete, self-contained request: the PM sees only what you send. Tell the person briefly what you delegated and where.',
     '3. The result comes back later as a worker_report carrying the same request_id. Until then the work is not done: "delivered" only means the PM received the request. "pending_offline" means the worker Mac is offline and the request is held until expires_at; it has NOT run yet. If it expires you get a worker_event saying it was not executed.',
     '4. When the worker_report arrives, reply with the result. Never invent or guess results you have not received, and never claim work is finished because a request was delivered.',
@@ -130,8 +152,9 @@ export function secretaryInstructions(cfg: HubConfig): string {
     'Reply only to the conversation you were asked from: always use the chat_id of the <channel> messages you received. Replies to any other chat_id are refused.',
     'The person can also post directly to PM and task threads in WebChat; those posts and their answers stay in the thread and are not sent to you.',
     'Tool approvals and terminal dialogs of worker sessions are shown to the person directly in WebChat as approval cards. Do not ask them to approve in chat; just wait for the report.',
-    'Reply in the language the person uses. Keep replies short.',
-    cfg.secretary.extra_instructions,
+    p.language ? `Reply in ${p.language} unless the person explicitly asks for another language.` : 'Reply in the language the person uses.',
+    VERBOSITY[p.verbosity],
+    cfg.secretary.extra_instructions.trim() ? `\n${cfg.secretary.extra_instructions.trim()}` : undefined,
   ]
     .filter(s => s !== undefined)
     .join('\n')
