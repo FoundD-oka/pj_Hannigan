@@ -326,7 +326,7 @@ Phase 3 では VPS を使わず、ハブ・秘書・WebChat を手元の Mac で
 
 - `offline_queue.enabled` は実地テストのために `true` にする（OSS 初期値は `false` のまま）。ワーカー常駐プログラムを止めて保留と再配送を再現する
 - `discord.enabled=false` 以外の `discord.*` は Phase 7 まで読み飛ばす。`public_url=null` のローカル推定 URL は開発用
-- LAN 内の 2 台目を足す場合は `ws://` を LAN に晒さず、SSH トンネルで `127.0.0.1:8800` を転送する。ペアリングは Phase 4 まで作らず `dev-setup` の鍵をコピーする
+- LAN 内の 2 台目を足す場合は `ws://` を LAN に晒さず、SSH トンネルで `127.0.0.1:8800` を転送する。ペアリングは Phase 4 まで作らず、ハブ側で `scripts/add-worker.ts --worker <id>` が鍵の発行と `workers[]` への追加を行い（ハブの再起動が要る）、2 台目で `scripts/worker-setup.ts --worker <id> --key <鍵>` が `worker.json`（案件は空、`hub_url` はトンネル先の `ws://127.0.0.1:<port>/ws/worker`）と `secrets/worker-key` を書く。2 台目に `hub.json` は置かず、`scripts/start.sh worker` だけを使う。手順は [docs/manual/README.md の 11 章](../manual/README.md#11-2-台目の-mac-をつなぐ)（2026-10-17 追加）
 - 既存の v1 設定からの移行（10 章）はこの段階で実装し、Phase 2 のセッション台帳を `role=task` として引き継ぐ
 
 ## 9. VPS 構成で追加確認する項目（Q1決定の実装条件。Phase 4 で実施）
@@ -542,4 +542,4 @@ Phase 5 の設定画面のうち、7 日間の日常運用（Phase 3 の出口�
 
 **案件フォルダの扱い**: Mac のローカルの場所はハブの記録に残さない（従来からの約束）。ワーカーは案件フォルダ（`path`）を命令 `list` と `config_set` の返り値にだけ載せ、出来事 `inventory` には載せない。ハブはフォルダを設定画面への応答にだけ使い、在庫の保持、出来事の記録、秘書のツールには渡さない。ホームフォルダの下は `~/…` の形で送るので、利用者名は Mac の外に出ない。ワーカーがオフラインの間はフォルダを表示できないが、その間は案件の編集もできないので困らない。Phase 4 で VPS 上のハブに移すときは、ホーム外のフォルダの場所が VPS を通ることを 9 章の確認項目に加えて見直す。
 
-**初回起動**: `scripts/start.sh` は `hub.json` か `worker.json` がないとき `scripts/dev-setup.ts --worker local --name "この Mac"` を実行する。案件は空のまま作るので、利用者は WebChat の設定画面で案件を足す。既にあるファイルは残す。
+**初回起動**: `scripts/start.sh` は `hub.json` か `worker.json` がないとき `scripts/dev-setup.ts --worker local --name "この Mac"` を実行する。案件は空のまま作るので、利用者は WebChat の設定画面で案件を足す。既にあるファイルは残す。 `scripts/start.sh worker` だけを使う 2 台目の Mac（8.1 節）は `worker.json` と `secrets/worker-key` があれば初期設定を作らず、`hub.json` を要らない。

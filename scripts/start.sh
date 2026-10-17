@@ -1,7 +1,7 @@
 #!/bin/bash
 # Start the hub and the worker daemon of this Mac in tmux sessions (Phase 2; launchd comes in Phase 4).
 # The first run creates the settings and keys (scripts/dev-setup.ts); projects are added in WebChat 設定.
-# usage: scripts/start.sh [hub|worker|all]   (default: all)
+# usage: scripts/start.sh [hub|worker|all]   (default: all; a second Mac set up with scripts/worker-setup.ts runs `worker`)
 # env:   HANNIGAN_HOME (default ~/.hannigan)
 set -euo pipefail
 REPO="$(cd "$(dirname "$0")/.." && pwd)"
@@ -10,8 +10,13 @@ HOME_DIR="${HANNIGAN_HOME:-$HOME/.hannigan}"
 PREFIX="${HANNIGAN_TMUX_PREFIX:-hn}"
 mkdir -p "$HOME_DIR/logs"
 # first start: create hub.json / worker.json and the keys for this Mac (no projects; add them in WebChat 設定).
-# dev-setup keeps every file that already exists.
-if [ ! -f "$HOME_DIR/hub.json" ] || [ ! -f "$HOME_DIR/worker.json" ]; then
+# dev-setup keeps every file that already exists. A worker-only Mac (scripts/worker-setup.ts; it has no hub.json)
+# is complete with worker.json and secrets/worker-key, so `worker` never calls dev-setup then.
+case "$WHAT" in
+  worker) NEED_SETUP=$([ -f "$HOME_DIR/worker.json" ] && [ -f "$HOME_DIR/secrets/worker-key" ] && echo no || echo yes) ;;
+  *) NEED_SETUP=$([ -f "$HOME_DIR/hub.json" ] && [ -f "$HOME_DIR/worker.json" ] && echo no || echo yes) ;;
+esac
+if [ "$NEED_SETUP" = yes ]; then
   echo "first start: creating settings in $HOME_DIR"
   HANNIGAN_HOME="$HOME_DIR" bun "$REPO/scripts/dev-setup.ts" --worker local --name "この Mac"
 fi

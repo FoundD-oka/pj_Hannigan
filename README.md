@@ -56,7 +56,7 @@ scripts/start.sh
 画面のスレッド一覧から PM や子のスレッドを開くと、履歴を見たり直接書き込んだりできる。子への書き込みは PM にも通知される。
 
 - 設定項目は [01 設定スキーマ](docs/design/01-config-schema.md)。設定画面で変えられる項目と変えられない項目は 01 の 25 章。`~/.hannigan/hub.json` と `worker.json` を直接編集してもよい（そのときは再起動で反映）
-- 待ち受けポートや秘密情報、ワーカーの追加は画面から変えられない。初回の設定を手で作るときは `bun scripts/dev-setup.ts --worker home --name "自宅 Mac" --role "私用。個人の開発" --project notes=~/work/notes`（他に `--port`、`--local-port`、`--pm-off`、`--force`）
+- 待ち受けポートや秘密情報、ワーカーの追加は画面から変えられない。LAN 内の 2 台目の Mac をワーカーとして足すときは、ハブ側で `bun scripts/add-worker.ts --worker <id>`、2 台目で `bun scripts/worker-setup.ts --worker <id> --key <鍵>`（[手順](docs/manual/README.md#11-2-台目の-mac-をつなぐ)）。初回の設定を手で作るときは `bun scripts/dev-setup.ts --worker home --name "自宅 Mac" --role "私用。個人の開発" --project notes=~/work/notes`（他に `--port`、`--local-port`、`--pm-off`、`--force`）
 - 停止は `scripts/stop.sh`。Claude Code のセッションは tmux に残り、次の起動で引き継ぐ。セッションも終えるときは `scripts/stop.sh --sessions`
 - `dev-setup.ts` の設定ではオフライン保留が有効になる。ワーカーを止めている間の依頼はハブが 24 時間保留し、再起動後に受付順で届ける
 - 試験: `bun test`（偽 Claude を使うので利用枠を使わない。全件で約 6 分）。本物の Claude での一巡は `bun test/e2e-real.ts <証拠の出力先>`（利用枠を使う）
