@@ -258,11 +258,13 @@ Claude Code を使わないときは、プロンプトの中のコマンドを�
 | やること | 方法 |
 | --- | --- |
 | WebChat を開く | `https://hannigan.found-d.com/#token=<VPS の webchat-token>`。トークンは VPS の `/home/hannigan/.hannigan/secrets/webchat-token`。1 回開けばブラウザが覚える。スマホからも同じ URL |
-| Mac のワーカーを起動する | リポジトリのフォルダで `scripts/start.sh worker`。`~/.hannigan/worker.json` の `hub_url` が `wss://hannigan.found-d.com/ws/worker` になっている（ペアリング済み）。止めるのは `scripts/stop.sh` |
+| Mac のワーカーを自動で動かす | 1 回だけ、リポジトリのフォルダで `scripts/install-launchd.sh` を実行する。以後はログインのたびに launchd（macOS の常駐プログラム管理）がワーカーを起動し、落ちても 10 秒以内に立て直す。`~/.hannigan/worker.json` の `hub_url` が `wss://hannigan.found-d.com/ws/worker` になっていること（ペアリング済み）が前提 |
+| ワーカーを手で動かす（launchd を使わないとき） | リポジトリのフォルダで `scripts/start.sh worker`。止めるのは `scripts/stop.sh`。launchd 導入済みのときは `start.sh worker` は起動せず、再起動コマンドを案内するだけ |
+| launchd のワーカーを扱う | 様子: `launchctl print gui/$(id -u)/com.hannigan.worker`、ログ: `~/.hannigan/logs/worker.log`。立て直す: `launchctl kickstart -k gui/$(id -u)/com.hannigan.worker`。次のログインまで止める: `launchctl bootout gui/$(id -u)/com.hannigan.worker`。やめる: `scripts/uninstall-launchd.sh`。どれも Claude Code のセッションは tmux に残る |
 | 別の Mac を足す | 設定画面の「ワーカーを追加」でコードを発行し、その Mac の Claude Code にプロンプトを貼る（11 章）。VPS 構成では SSH トンネルは要らない |
 | ハブを操作する | VPS に `ssh -i ~/.ssh/hannigan-vps root@162.43.38.222`。`systemctl status hannigan-hub`、ログは `/home/hannigan/.hannigan/logs/hub.log`。設定は `/home/hannigan/.hannigan/hub.json`（設定画面からも変えられる） |
 | 秘書の Claude Code のログインが切れたとき | VPS で `su - hannigan -c 'tmux new -s hn-login "claude auth login"'` を実行し、出てきた URL をブラウザで開いて承認し、コードを貼る |
 | VPS を新しく作り直すとき | root で `scripts/vps-setup.sh --host <公開ホスト名> --email <メール>`。手順の中身は [docs/verification/phase4-vps](../verification/phase4-vps/README.md) |
 
-Mac を再起動したあとは、今のところ手で `scripts/start.sh worker` を打つ（自動起動は Phase 4 の残り）。
+Mac を再起動したあとは、ログインすれば launchd がワーカーを起動して VPS のハブへ自動でつなぐ。`scripts/start.sh worker` を打つ必要はない。
 
