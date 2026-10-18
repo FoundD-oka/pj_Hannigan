@@ -33,7 +33,11 @@ case "$WHAT" in
   all) start hub "$REPO/hub/hub.ts"; sleep 1; start worker "$REPO/worker/daemon.ts" ;;
   *) echo "usage: $0 [hub|worker|all]" >&2; exit 1 ;;
 esac
-if [ -f "$HOME_DIR/hub.json" ] && [ -f "$HOME_DIR/secrets/webchat-token" ]; then
-  PORT=$(python3 -I -c "import json,sys;print(json.load(open(sys.argv[1])).get('listen',{}).get('port',8800))" "$HOME_DIR/hub.json")
-  echo "WebChat (keep private): http://127.0.0.1:$PORT/#token=$(cat "$HOME_DIR/secrets/webchat-token")"
+# the WebChat address is only meaningful when the hub runs here
+if [ "$WHAT" != worker ] && [ -f "$HOME_DIR/hub.json" ] && [ -f "$HOME_DIR/secrets/webchat-token" ]; then
+  BASE=$(python3 -I -c "import json,sys;c=json.load(open(sys.argv[1]));print(c.get('public_url') or 'http://127.0.0.1:%s' % c.get('listen',{}).get('port',8800))" "$HOME_DIR/hub.json")
+  echo "WebChat (keep private): $BASE/#token=$(cat "$HOME_DIR/secrets/webchat-token")"
+elif [ "$WHAT" = worker ] && [ -f "$HOME_DIR/worker.json" ]; then
+  HUB=$(python3 -I -c "import json,sys;print(json.load(open(sys.argv[1])).get('hub_url',''))" "$HOME_DIR/worker.json")
+  echo "worker only; hub: $HUB (WebChat is served by that hub)"
 fi

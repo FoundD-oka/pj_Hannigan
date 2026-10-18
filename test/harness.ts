@@ -125,7 +125,7 @@ export class Harness {
 
   private spawn(script: string, name: string): Subprocess {
     return Bun.spawn(['bun', join(REPO, script)], {
-      env: { ...process.env, HANNIGAN_HOME: this.home },
+      env: { ...process.env, HANNIGAN_HOME: this.home, HANNIGAN_CLAUDE_PROJECTS_ROOT: join(this.fakeState, 'projects') },
       stdout: Bun.file(join(this.dir, `${name}.out.log`)),
       stderr: Bun.file(join(this.dir, `${name}.log`)),
     })
@@ -140,7 +140,7 @@ export class Harness {
   extraWorkers: Subprocess[] = []
   startWorkerFrom(home: string): Subprocess {
     const p = Bun.spawn(['bun', join(REPO, 'worker/daemon.ts')], {
-      env: { ...process.env, HANNIGAN_HOME: home },
+      env: { ...process.env, HANNIGAN_HOME: home, HANNIGAN_CLAUDE_PROJECTS_ROOT: join(this.fakeState, 'projects') },
       stdout: Bun.file(join(this.dir, `worker2-${Date.now()}.out.log`)),
       stderr: Bun.file(join(this.dir, `worker2-${Date.now()}.log`)),
     })

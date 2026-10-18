@@ -20,6 +20,15 @@ const sessionId = arg('--session-id') ?? arg('--resume') ?? 'no-session'
 const STATE = process.env.FAKE_CLAUDE_STATE ?? '/tmp/fake-claude'
 mkdirSync(STATE, { recursive: true })
 appendFileSync(join(STATE, 'argv.jsonl'), JSON.stringify({ sessionId, argv, cwd: process.cwd() }) + '\n')
+// the real Claude Code keeps a transcript at ~/.claude/projects/<cwd slug>/<session id>.jsonl once a conversation exists;
+// the session manager only passes --resume when that file is there (HANNIGAN_CLAUDE_PROJECTS_ROOT in tests)
+{
+  const slug = process.cwd().replace(/[\/.]/g, '-')
+  const dir = join(STATE, 'projects', slug)
+  mkdirSync(dir, { recursive: true })
+  const f = join(dir, `${sessionId}.jsonl`)
+  if (!existsSync(f)) writeFileSync(f, '')
+}
 const memFile = join(STATE, `mem-${sessionId}.json`)
 const mem = existsSync(memFile) ? (JSON.parse(readFileSync(memFile, 'utf8')) as Record<string, string>) : {}
 const saveMem = () => writeFileSync(memFile, JSON.stringify(mem))

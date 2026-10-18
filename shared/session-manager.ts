@@ -3,7 +3,8 @@
 // See docs/design/02-worker-daemon.md.
 import type { ServerWebSocket } from 'bun'
 import { randomUUID } from 'crypto'
-import { existsSync, writeFileSync } from 'fs'
+import { existsSync, readdirSync, writeFileSync } from 'fs'
+import { homedir } from 'os'
 import { join } from 'path'
 import type { SessionSpec } from './config.ts'
 import { ACCEPT_LABEL, keysToSelect, parsePane, type TerminalPrompt } from './pane.ts'
@@ -76,6 +77,30 @@ export type ManagerOptions = {
   // messages accepted by send() while the bridge was not ready, still unsent when the session ended
   // (hub: re-queued for the conversation; never dropped silently)
   onUndelivered?: (s: SessionRecord, msgs: { content: string; meta: Record<string, string> }[]) => void
+  // where Claude Code keeps its transcripts (default ~/.claude/projects, or env HANNIGAN_CLAUDE_PROJECTS_ROOT); tests point it elsewhere
+  claudeProjectsRoot?: string
+}
+
+// Claude Code only accepts `--resume <id>` for a conversation it has a transcript for (~/.claude/projects/<cwd>/<id>.jsonl).
+// A session whose first start never got past a dialog has none: resuming it exits at once with
+// "No conversation found with session ID", so the caller starts it fresh with `--session-id` instead (04 S3, 2026-10-19).
+export function transcriptExists(root: string, conversationId: string): boolean {
+  if (!/^[0-9a-f-]{36}$/i.test(conversationId)) return false
+  let dirs: string[]
+  try {
+    dirs = readdirSync(root)
+  } catch {
+    return false
+  }
+  return dirs.some(d => existsSync(join(root, d, `${conversationId}.jsonl`)))
+}
+
+// the shell Claude Code gets: the daemon's own when it has one (a login shell), else the OS default. systemd gives
+// none, and /bin/zsh does not exist on Ubuntu.
+export function defaultShell(env: NodeJS.ProcessEnv = process.env, platform = process.platform): string {
+  if (env.SHELL && existsSync(env.SHELL)) return env.SHELL
+  for (const sh of platform === 'darwin' ? ['/bin/zsh', '/bin/bash'] : ['/bin/bash', '/bin/zsh', '/bin/sh']) if (existsSync(sh)) return sh
+  return '/bin/sh'
 }
 
 export const TERMINAL_STATES: SessionState[] = ['stopped', 'exited', 'failed']
@@ -282,6 +307,11 @@ export class SessionManager {
   }
 
   private launch(s: SessionRecord, resume: boolean): void {
+    if (resume && !transcriptExists(this.o.claudeProjectsRoot ?? process.env.HANNIGAN_CLAUDE_PROJECTS_ROOT ?? join(homedir(), '.claude', 'projects'), s.conversation_id)) {
+      // nothing to resume yet (the first start never reached the conversation): start fresh under the same id
+      log(this.o.component, 'no transcript for the conversation; starting fresh with the same id instead of --resume', { session: s.key, conversation: s.conversation_id })
+      resume = false
+    }
     const spec = this.specOf(s)
     const extras = this.o.launchExtras?.(s) ?? null
     const cfgFile = join(this.o.stateDir, `bridge-${s.key}.json`)
@@ -304,7 +334,7 @@ export class SessionManager {
     )
     const argv = [
       this.o.claudeBin,
-      ...(resume ? ['--resume', s.conversation_id] : ['--session-id', s.key]),
+      ...(resume ? ['--resume', s.conversation_id] : ['--session-id', s.conversation_id]),
       '--permission-mode',
       spec.permission_mode,
       '--mcp-config',
@@ -321,7 +351,7 @@ export class SessionManager {
       HOME: process.env.HOME ?? '',
       USER: process.env.USER ?? '',
       LOGNAME: process.env.LOGNAME ?? process.env.USER ?? '',
-      SHELL: process.env.SHELL ?? '/bin/zsh',
+      SHELL: defaultShell(),
       PATH: process.env.PATH ?? '/opt/homebrew/bin:/usr/local/bin:/usr/bin:/bin:/usr/sbin:/sbin',
       TERM: 'xterm-256color',
       LANG: process.env.LANG ?? 'ja_JP.UTF-8',
