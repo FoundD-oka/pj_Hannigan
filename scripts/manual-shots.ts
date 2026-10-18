@@ -182,6 +182,8 @@ try {
     await cdp.eval(`(() => { const box = document.querySelector('.proj-edit.new'); if (!box) return; const ins = box.querySelectorAll('input[type=text], textarea');
       const set = (i, v) => { if (ins[i]) { ins[i].value = v; ins[i].dispatchEvent(new Event('input')) } }; set(0, 'blog'); set(1, '~/work/blog'); set(2, '個人ブログの原稿'); box.scrollIntoView({ block: 'center' }) })()`)
     await cdp.shot('12-settings-add-project')
+    await cdp.eval(`(() => { const h = [...document.querySelectorAll('#settings h2')].find(x => /2 台目/.test(x.textContent)); h && h.scrollIntoView({ block: 'start' }); scrollBy(0, -240) })()`)
+    await cdp.shot('17-settings-second-mac')
     throw new Error('settings done')
   }
 

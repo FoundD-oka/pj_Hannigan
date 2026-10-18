@@ -5,6 +5,7 @@
 // ledger.ts (shared work items), threads.ts (WebChat thread view), secretary.ts (tools and instructions).
 import type { Server as BunServer, ServerWebSocket } from 'bun'
 import { readFileSync } from 'fs'
+import { hostname } from 'os'
 import { join, sep } from 'path'
 import { canonical, ConfigError, ID_RE, loadHubConfig } from '../shared/config.ts'
 import {
@@ -1281,6 +1282,8 @@ async function settingsView() {
     // shown for reference; changing them means editing hub.json / the secrets and restarting
     fixed: {
       listen: { host: cfg.listen.host, port: cfg.listen.port, editable: false },
+      // for the "2 台目の Mac" guide in the screen: the ssh tunnel example names this Mac (not recorded anywhere)
+      hostname: hostname(),
       public_url: { value: cfg.public_url, editable: false },
       secrets: { editable: false },
     },

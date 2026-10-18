@@ -525,7 +525,7 @@ Phase 5 の設定画面のうち、7 日間の日常運用（Phase 3 の出口�
 
 | 経路 | 内容 |
 | --- | --- |
-| `GET /api/settings` | `hub`（上の hub.json の項目と各ワーカーの接続状態）、`worker_projects`（ワーカーごとの案件と PM 設定。接続中のワーカーには `list` を送って案件フォルダも取る）、`paths_known`（フォルダを取れたワーカー）、`fixed`（`listen`・`public_url`・秘密情報。`editable: false`） |
+| `GET /api/settings` | `hub`（上の hub.json の項目と各ワーカーの接続状態）、`worker_projects`（ワーカーごとの案件と PM 設定。接続中のワーカーには `list` を送って案件フォルダも取る）、`paths_known`（フォルダを取れたワーカー）、`fixed`（`listen`・`public_url`・秘密情報。`editable: false`。2026-10-18 からハブの Mac の `hostname` も返し、画面の「2 台目の Mac をつなぐ（手順）」の SSH トンネルの例に使う。記録には残さない） |
 | `POST /api/settings/hub` | 上の hub.json の項目だけを受け付ける。今の `hub.json` の JSON に差分を書き込み、起動時と同じ検証（`HubConfigSchema` と `checkHubConfig`）を通してから原子的に書き込み、動いているハブに反映する。返り値 `{ ok, changed, applies: { now, next_secretary_start, restart }, settings }` |
 | `POST /api/settings/worker` | `{ worker, projects }`。ハブはワーカーへ命令 `config_set`（03 §2.3）を送り、結果をそのまま返す。ワーカーが未接続なら `worker_offline` で断る。オフライン保留はしない |
 

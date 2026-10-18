@@ -184,6 +184,11 @@
 - **試験:** 単体 `hub-secretary.test.ts`（新設。指示文の組み立て）、`hub-settings.test.ts`、`config.test.ts` に追加。通し `e2e-fake/settings.test.ts` に、保存 → `hub.json` → 表示名 → 新しい会話の秘書が受け取る指示文（偽 Claude が `instructions-<session>.txt` に書き出す）までの確認を追加。本物の Claude では未確認。
 - **変えていないこと:** PM と子の指示文（案件ごとの `pm.extra_instructions` は従来どおり）。秘書の起動条件（`secretary.session`）とモデルは画面から変えない。
 
+## 3h 設定画面の「2 台目の Mac をつなぐ（手順）」— 2026-10-18
+
+- 設定画面のいちばん下に、2 台目の Mac をワーカーとして足す手順（`add-worker.ts` → ハブ再起動 → リモートログイン → `worker-setup.ts` → SSH トンネル → `start.sh worker` → 画面で確認）を、ハブのポートとホスト名を埋めたコマンドつきで表示する。マニュアル 11 章と同じ内容
+- ワーカーの追加そのものは画面からできないまま（鍵の発行を伴うため。ペアリングは Phase 4）。`GET /api/settings` の `fixed` に `hostname` を足した（記録には残さない）
+
 ## 変更していないこと
 
 - 既存の Channels/ブリッジ/セッション管理/イベント・承認プロトコルの基本設計。
