@@ -211,6 +211,14 @@
 - 試験: 単体 `hub-pairing.test.ts`、通し `e2e-fake/pairing.test.ts`（コード発行 → `pair()` で鍵取得と `worker.json` → 別ホームのワーカー起動 → 再起動なしで接続。ID 違い、使用済み、知らないコード、登録済み ID、取消の拒否）。wss の実機確認は WP2 の VPS 配置の後
 - `scripts/add-worker.ts` ＋ `worker-setup.ts` は残した（ハブに HTTP で届かない状況用）。マニュアル 11 章はペアリング方式に書き換え
 
+## Phase 4 S3・WP2・WP3 VPS 配置の実機確認 — 2026-10-19
+
+- XServer VPS（Ubuntu 24.04）に `hannigan` ユーザーでハブを配置し、`https://hannigan.found-d.com` で WebChat、`wss://…/ws/worker` でワーカーがつながる構成にした。既存の Caddy（別プロジェクト ccr-ingress）に `import /etc/caddy/hannigan.caddy` を 1 行足して共有し、証明書は Caddy が自動取得。systemd `hannigan-hub.service` は `KillMode=process` でハブだけを止め、tmux の秘書は残す
+- 本物の Claude で、VPS の秘書 → wss → 自宅 Mac の PM → 報告 → 秘書の返事の一巡、秘書の停止と `--resume` 再開、ハブの systemd 再起動後の継続を確認（[報告](../verification/phase4-vps/README.md)）
+- 直した不具合: Linux 新規ユーザーの初回設定ダイアログ（設定済みの印を先に書く）、会話記録の無いセッションの `--resume` で Claude Code が即終了して再起動を繰り返す（記録が無ければ `--session-id`）、Caddy の gzip で SSE が流れない（`encode` を外す）、`SHELL=/bin/zsh` 固定（存在するシェルを選ぶ）
+- 追加: `scripts/vps-setup.sh`（VPS 側の手順を 1 本に）、`deploy/systemd/hannigan-hub.service`、`deploy/caddy/hannigan.caddy`。`scripts/pair.ts` は既存の `worker.json` の案件を残して接続先だけ差し替える
+- 未: 24 時間の安定性、会社の Mac（別ネットワークの 2 台目）、launchd、VPS 自体の再起動、CU 承認の補助経路。Phase 3 の 7 日間運用は VPS 構成で数え直す
+
 ## 変更していないこと
 
 - 既存の Channels/ブリッジ/セッション管理/イベント・承認プロトコルの基本設計。

@@ -1,0 +1,23 @@
+[Unit]
+Description=Hannigan hub (WebChat + secretary sessions; 127.0.0.1:8800 behind Caddy)
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=hannigan
+Group=hannigan
+WorkingDirectory=/home/hannigan/pj-Hannigan
+Environment=HOME=/home/hannigan
+Environment=HANNIGAN_HOME=/home/hannigan/.hannigan
+Environment=PATH=/home/hannigan/.bun/bin:/home/hannigan/.local/bin:/usr/local/bin:/usr/bin:/bin
+ExecStart=/home/hannigan/.bun/bin/bun hub/hub.ts
+Restart=always
+RestartSec=3
+# the hub stops; secretary Claude Code sessions keep running in tmux and are picked up again at start
+KillMode=process
+StandardOutput=append:/home/hannigan/.hannigan/logs/hub.log
+StandardError=append:/home/hannigan/.hannigan/logs/hub.log
+
+[Install]
+WantedBy=multi-user.target

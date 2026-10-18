@@ -1,0 +1,8 @@
+# Hannigan (github.com/FoundD-oka/pj_Hannigan): WebChat + ワーカー用 wss。ハブは 127.0.0.1:8800。2026-10-19 追加。
+# Caddyfile（ccr-ingress の Caddyfile.template から描画）が最上位で import する。証明書は Caddy が Let's Encrypt から自動取得。
+https://hannigan.found-d.com {
+	tls lo.conozco@gmail.com
+	reverse_proxy 127.0.0.1:8800 {
+		flush_interval -1
+	}
+}

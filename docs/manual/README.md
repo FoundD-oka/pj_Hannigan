@@ -250,3 +250,19 @@ Claude Code を使わないときは、プロンプトの中のコマンドを�
 | 2 台目の Claude が「別ネットワークにいる」と報告する | ハブがこの Mac にあり、2 台が別のネットワーク。ハブを VPS に置く（Phase 4、[docs/design/04-vps-deployment.md](../design/04-vps-deployment.md)） |
 
 昔の方式（ハブ側で `scripts/add-worker.ts`、2 台目で `scripts/worker-setup.ts --key`）も残っているが、普段はペアリングを使う。
+
+## 12. VPS 構成で使う（Phase 4）
+
+2026-10-19 から、ハブと秘書は VPS（`https://hannigan.found-d.com`）で動いている。手元の Mac はワーカーだけを動かす。
+
+| やること | 方法 |
+| --- | --- |
+| WebChat を開く | `https://hannigan.found-d.com/#token=<VPS の webchat-token>`。トークンは VPS の `/home/hannigan/.hannigan/secrets/webchat-token`。1 回開けばブラウザが覚える。スマホからも同じ URL |
+| Mac のワーカーを起動する | リポジトリのフォルダで `scripts/start.sh worker`。`~/.hannigan/worker.json` の `hub_url` が `wss://hannigan.found-d.com/ws/worker` になっている（ペアリング済み）。止めるのは `scripts/stop.sh` |
+| 別の Mac を足す | 設定画面の「ワーカーを追加」でコードを発行し、その Mac の Claude Code にプロンプトを貼る（11 章）。VPS 構成では SSH トンネルは要らない |
+| ハブを操作する | VPS に `ssh -i ~/.ssh/hannigan-vps root@162.43.38.222`。`systemctl status hannigan-hub`、ログは `/home/hannigan/.hannigan/logs/hub.log`。設定は `/home/hannigan/.hannigan/hub.json`（設定画面からも変えられる） |
+| 秘書の Claude Code のログインが切れたとき | VPS で `su - hannigan -c 'tmux new -s hn-login "claude auth login"'` を実行し、出てきた URL をブラウザで開いて承認し、コードを貼る |
+| VPS を新しく作り直すとき | root で `scripts/vps-setup.sh --host <公開ホスト名> --email <メール>`。手順の中身は [docs/verification/phase4-vps](../verification/phase4-vps/README.md) |
+
+Mac を再起動したあとは、今のところ手で `scripts/start.sh worker` を打つ（自動起動は Phase 4 の残り）。
+
