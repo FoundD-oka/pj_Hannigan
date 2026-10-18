@@ -202,7 +202,7 @@ scripts/stop.sh --sessions   # 秘書・PM・子も /exit で終える
 
 同じ LAN にあるもう 1 台の Mac を、作業用のワーカーとして足す手順。ハブ（WebChat と秘書）は 1 台目に置いたまま、2 台目はワーカーだけを動かす。2 台目の通信は SSH トンネル（SSH 接続の中に別の通信を通す仕組み）で 1 台目の `127.0.0.1:8800` に届くので、ハブのポートを LAN に公開しない。
 
-同じ手順は WebChat の設定画面のいちばん下「2 台目の Mac をつなぐ（手順）」にも出る。ポートとこの Mac のホスト名を埋めたコマンドが並ぶので、端末に貼って使える。
+同じ手順は WebChat の設定画面のいちばん下「2 台目の Mac をつなぐ（手順）」にも出る。1 台目で打つコマンドと、2 台目の Claude Code に貼るプロンプトの雛形（ポート、この Mac のホスト名と利用者名は埋めてある）が「コピー」ボタンつきで並ぶ。
 
 ![設定画面（2 台目の手順）](images/17-settings-second-mac.png)
 
@@ -224,25 +224,18 @@ scripts/stop.sh && scripts/start.sh
 
 **2 台目（ワーカー側）で**
 
-リポジトリを clone して `bun install` を済ませてから、1 台目に出たコマンドを実行する。
+2 台目の作業は、その Mac の Claude Code に任せる。1 台目の `add-worker.ts` の出力の最後に「2 台目の Claude Code に貼るプロンプト」が鍵入りで出るので、2 台目で Claude Code を開いて、そのまま貼る。プロンプトの雛形は WebChat の設定画面の手順カード（4 番目）にもあり、1 台目のホスト名・利用者名・ポートは埋めてある。手元に鍵入りの出力が無いときは、雛形の `<ワーカー ID>` と `<鍵>` を埋めて貼る。
 
-```bash
-bun scripts/worker-setup.ts --worker lime --key <1 台目に出た鍵> --hub-port 8800
-```
+Claude は次を順に行い、各段階を報告する。sudo が要る操作や鍵の生成は実行前に確認を取る。
 
-`~/.hannigan/worker.json`（案件は空、接続先は `ws://127.0.0.1:8800/ws/worker`）と `~/.hannigan/secrets/worker-key` を書く。`hub.json` は作らない。既にあるファイルは `--force` が無ければ残す。2 台目でもポート 8801 を別の用途に使っているなら `--local-port` で変える。
+1. リポジトリを `~/pj-Hannigan` に取得して `bun install`
+2. `bun scripts/worker-setup.ts --worker <ID> --key <鍵> --hub-port 8800` で `~/.hannigan/worker.json`（案件は空）と `secrets/worker-key` を書く。`hub.json` は作らない
+3. `ssh -o BatchMode=yes <利用者名>@<1 台目>` で疎通を確かめる。鍵認証が無ければ `ssh-keygen` と `ssh-copy-id` を案内する（パスワードはあなたが入力する）
+4. tmux セッション `hn-tunnel` で SSH トンネル（`-L 8800:127.0.0.1:8800`、`ServerAliveInterval` つき）を張り、`curl http://127.0.0.1:8800/health` で `{"ok":true}` を確かめる
+5. `scripts/start.sh worker` で起動し、`~/.hannigan/logs/worker.log` の `connected to hub` を確かめる
+6. 結果と変更したファイル、残った問題を報告する
 
-SSH トンネルを張り、別の端末でワーカーを起動する。トンネルはワーカーを動かしている間ずっと開けておく。
-
-```bash
-ssh -N -L 8800:127.0.0.1:8800 <1 台目の利用者名>@<1 台目のホスト名か IP>
-```
-
-```bash
-scripts/start.sh worker
-```
-
-`start.sh worker` は `worker.json` と鍵があれば初期設定を作らないので、2 台目に `hub.json` は要らない。
+Claude Code を使わないときは、プロンプトの中のコマンドを上から順に自分で実行すれば同じになる。プロンプトの本文は [shared/second-mac-prompt.ts](../../shared/second-mac-prompt.ts) にある。
 
 **確認と案件の登録**
 
@@ -250,8 +243,8 @@ scripts/start.sh worker
 
 | 症状 | 見る場所と対処 |
 | --- | --- |
-| 2 台目が「未接続」のまま | トンネルの `ssh` が生きているか。2 台目の `~/.hannigan/logs/worker.log` に `connected to hub` が出ているか |
-| 1 台目の `hub.log` に `worker auth rejected` | 鍵が違う。1 台目で `add-worker.ts --worker <ID> --force` で作り直し、2 台目で `worker-setup.ts ... --force` を入れ直す |
+| 2 台目が「未接続」のまま | 2 台目の Claude に、tmux セッション `hn-tunnel` の `ssh` が生きているか、`~/.hannigan/logs/worker.log` に `connected to hub` が出ているかを確かめさせる |
+| 1 台目の `hub.log` に `worker auth rejected` | 鍵が違う。1 台目で `add-worker.ts --worker <ID> --force` で作り直し、出てきた新しいプロンプトを 2 台目の Claude に貼り直す（`worker-setup.ts` には `--force` を付けるよう伝える） |
 | 2 台目のワーカーが一覧に出ない | 1 台目のハブを起動し直したか（`stop.sh` と `start.sh`） |
 
 この方式は Phase 3 のローカル実地テスト用。Phase 4 では VPS 上のハブに WSS でつなぎ、鍵はペアリングコードで交換する。

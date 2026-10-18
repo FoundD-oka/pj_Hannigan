@@ -5,7 +5,7 @@
 // ledger.ts (shared work items), threads.ts (WebChat thread view), secretary.ts (tools and instructions).
 import type { Server as BunServer, ServerWebSocket } from 'bun'
 import { readFileSync } from 'fs'
-import { hostname } from 'os'
+import { hostname, userInfo } from 'os'
 import { join, sep } from 'path'
 import { canonical, ConfigError, ID_RE, loadHubConfig } from '../shared/config.ts'
 import {
@@ -39,6 +39,7 @@ import { OfflineQueue } from './offline-queue.ts'
 import { RequestStore, type RequestState } from './requests.ts'
 import { SECRETARY_TOOLS, secretaryInstructions } from './secretary.ts'
 import { planHubSettings, SettingsError } from './settings.ts'
+import { secondMacPromptTemplate } from '../shared/second-mac-prompt.ts'
 import { buildThreads, coverageOf, nextCoverage, threadHistory, type Coverage } from './threads.ts'
 
 let cfg: ReturnType<typeof loadHubConfig>
@@ -1282,12 +1283,19 @@ async function settingsView() {
     // shown for reference; changing them means editing hub.json / the secrets and restarting
     fixed: {
       listen: { host: cfg.listen.host, port: cfg.listen.port, editable: false },
-      // for the "2 台目の Mac" guide in the screen: the ssh tunnel example names this Mac (not recorded anywhere)
-      hostname: hostname(),
       public_url: { value: cfg.public_url, editable: false },
       secrets: { editable: false },
     },
+    // the "2 台目の Mac" guide: this Mac's name and login for the ssh tunnel, and the prompt for Claude Code on the
+    // other Mac with the worker id and key left as placeholders (the real key only ever leaves add-worker.ts). Not recorded.
+    second_mac: secondMac(),
   }
+}
+function secondMac() {
+  const hn = hostname()
+  const hubHost = hn.includes('.') ? hn : `${hn}.local`
+  const hubUser = userInfo().username
+  return { hostname: hubHost, user: hubUser, port: cfg.listen.port, prompt_template: secondMacPromptTemplate({ hubPort: cfg.listen.port, hubHost, hubUser }) }
 }
 
 function saveHubSettings(input: unknown): Response {

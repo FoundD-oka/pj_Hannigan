@@ -196,6 +196,12 @@
 - 機能と要素の ID・クラスは変えていない（承認カード `ap-*`、`#settingsBtn`、`#threads .row`、`.proj-edit.new` など撮影スクリプトと設定画面が頼るもの）。設定項目の補足文は入力欄の下に回り込ませた
 - `scripts/manual-shots.ts` に `--fake-chat`（偽 Claude で会話・スレッド・配色・スマホ幅を撮る）を追加。マニュアル 1〜2 章の画面を撮り直し、3 章以降は前の見た目のまま（操作位置と文言は同じ）
 
+## 3j 2 台目の設定を 2 台目の Claude Code に任せる — 2026-10-18
+
+- 2 台目の Mac 側の手順を「その Mac の Claude Code に貼るプロンプト」にした（`shared/second-mac-prompt.ts`）。リポジトリの取得、`worker-setup.ts`、SSH の疎通確認（鍵認証の案内つき）、tmux での SSH トンネル、`/health` の確認、`start.sh worker`、ログの確認、報告までを Claude が行い、sudo・鍵生成・削除は実行前に確認を取る。やらないこと（hub.json を作らない、ポートを公開しない、鍵を書き換えない）も書いた
+- `scripts/add-worker.ts` は最後に鍵入りのプロンプトを 1 回だけ表示する。ハブの `GET /api/settings` は `second_mac`（ホスト名・利用者名・ポート・雛形）を返し、設定画面の手順カードは 1 台目のコマンドと雛形を「コピー」ボタンつきで示す。雛形に本物の鍵は入らない
+- 単体 `second-mac-prompt.test.ts`（値の埋め込み、雛形に鍵が無いこと）。実機の 2 台目では未確認
+
 ## 変更していないこと
 
 - 既存の Channels/ブリッジ/セッション管理/イベント・承認プロトコルの基本設計。

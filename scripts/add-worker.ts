@@ -11,6 +11,8 @@ import { join } from 'path'
 import { hanniganHome, HUB_CONFIG_VERSION, HubConfigSchema, ID_RE, loadHubConfig } from '../shared/config.ts'
 import { newToken, readWorkerKeys, writeSecret } from '../shared/secrets.ts'
 import { readJson, writeJsonAtomic } from '../shared/util.ts'
+import { secondMacPrompt } from '../shared/second-mac-prompt.ts'
+import { hostname, userInfo } from 'os'
 
 export class AddWorkerError extends Error {}
 
@@ -100,11 +102,14 @@ function main(): void {
   out('1. restart the hub on this Mac (workers[] is read at start; stop.sh also stops this Mac\'s worker, so start both again):')
   out('     scripts/stop.sh && scripts/start.sh')
   out()
-  out('2. on the other Mac (clone the repository, run `bun install`), then:')
-  out(`     bun scripts/worker-setup.ts --worker ${worker} --key ${r.key} --hub-port ${r.hubPort}`)
+  out('2. on the other Mac, open Claude Code and paste the prompt below (it contains the key; it is shown only this once,')
+  out('   is stored in secrets/worker-keys.json on this Mac and goes to no log). Claude there clones the repository, runs')
+  out('   worker-setup.ts, opens the SSH tunnel and starts the worker. Without Claude, run the commands in the prompt yourself.')
   out()
-  out('   The key above is shown only this once (it is stored in secrets/worker-keys.json on this Mac; it goes to no log).')
-  out('   worker-setup.ts prints the SSH tunnel to open and `scripts/start.sh worker`.')
+  const hn = hostname()
+  out('----- 8< ----- paste into Claude Code on the other Mac -----')
+  out(secondMacPrompt({ worker, key: r.key, hubPort: r.hubPort, hubHost: hn.includes('.') ? hn : `${hn}.local`, hubUser: userInfo().username }))
+  out('----- 8< -----')
 }
 
 if (import.meta.main) main()

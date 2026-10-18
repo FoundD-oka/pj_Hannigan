@@ -564,33 +564,40 @@ function loadSettings() {
     renderSecondMacGuide(root, r);
   });
 }
-// how to add another Mac as a worker (Phase 3: ssh tunnel + a key issued on this Mac; docs/manual 11 章)
+// how to add another Mac as a worker (Phase 3): a key issued on this Mac, then Claude Code on the other Mac does the
+// rest from a prompt (shared/second-mac-prompt.ts; docs/manual 11 章)
+function copyBtn(getText) {
+  const b = el('button', null, 'コピー'); b.type = 'button';
+  b.onclick = () => { navigator.clipboard.writeText(getText()).then(() => { b.textContent = 'コピーしました'; setTimeout(() => { b.textContent = 'コピー'; }, 1500); }, () => { b.textContent = 'コピーできませんでした（手で選択してください）'; }); };
+  return b;
+}
 function renderSecondMacGuide(root, r) {
-  const port = (r.fixed && r.fixed.listen && r.fixed.listen.port) || 8800;
-  const hn = r.fixed && r.fixed.hostname; const host = hn ? (hn.includes('.') ? hn : hn + '.local') : '<この Mac のホスト名か IP>';
+  const sm = r.second_mac || {};
+  const port = sm.port || (r.fixed && r.fixed.listen && r.fixed.listen.port) || 8800;
   root.append(el('h2', null, '2 台目の Mac をつなぐ（手順）'));
   const c = el('div', 'card guide');
-  c.append(el('div', 'role', 'ワーカーの追加は鍵の発行を伴うので、この画面からはできません。下の手順を端末で行います。ハブ（この画面と秘書）はこの Mac に置いたまま、2 台目はワーカーだけを動かし、SSH トンネル（SSH 接続の中に別の通信を通す仕組み）でこの Mac の 127.0.0.1:' + port + ' に届きます。ハブのポートは LAN に公開しません'));
-  const step = (title, body, cmd) => { const li = el('li'); li.append(el('b', null, title), el('div', 'hint', body)); if (cmd) li.append(el('pre', null, cmd)); return li; };
+  c.append(el('div', 'role', `ワーカーの追加は鍵の発行を伴うので、この画面からはできません。この Mac で 1 回コマンドを打ち、2 台目の作業はその Mac の Claude Code に任せます。ハブ（この画面と秘書）はこの Mac に置いたまま、2 台目はワーカーだけを動かし、SSH トンネル（SSH 接続の中に別の通信を通す仕組み）でこの Mac の 127.0.0.1:${port} に届きます。ハブのポートは LAN に公開しません`));
+  const step = (title, body, cmd) => { const li = el('li'); li.append(el('b', null, title), el('div', 'hint', body)); if (cmd) { const pre = el('pre', null, cmd); li.append(pre); const bb = el('div', 'btns'); bb.append(copyBtn(() => cmd)); li.append(bb); } return li; };
   const a = el('ol');
+  const addCmd = 'bun scripts/add-worker.ts --worker office --name "仕事 Mac" --role "仕事用。会社のリポジトリはこちら"';
   a.append(
-    step('この Mac で 2 台目を登録する', 'リポジトリのフォルダで実行。ワーカー ID（英数字と - _、32 文字まで）、表示名、役割（秘書が振り分けに使う文章）を決めます。鍵を 1 つ作って secrets/worker-keys.json と hub.json に足し、2 台目で実行するコマンドが鍵つきで 1 回だけ出ます。同じ ID があるときは断るので、鍵を作り直すときだけ --force を付けます',
-      'bun scripts/add-worker.ts --worker office --name "仕事 Mac" --role "仕事用。会社のリポジトリはこちら"'),
-    step('ハブを起動し直す', 'ワーカー一覧はハブの起動時にしか読みません。stop.sh はこの Mac のワーカーも止めるので、両方をもう一度起動します',
-      'scripts/stop.sh && scripts/start.sh'),
+    step('この Mac で 2 台目を登録する（端末、リポジトリのフォルダで）', 'ワーカー ID（英数字と - _、32 文字まで）、表示名、役割（秘書が振り分けに使う文章）を決めて実行します。鍵を 1 つ作って secrets/worker-keys.json と hub.json に足し、最後に「2 台目の Claude Code に貼るプロンプト」が鍵入りで 1 回だけ出ます。同じ ID があるときは断るので、鍵を作り直すときだけ --force を付けます', addCmd),
+    step('ハブを起動し直す', 'ワーカー一覧はハブの起動時にしか読みません。stop.sh はこの Mac のワーカーも止めるので、両方をもう一度起動します', 'scripts/stop.sh && scripts/start.sh'),
     step('この Mac でリモートログインをオンにする', 'システム設定 > 一般 > 共有 > 「リモートログイン」。2 台目から SSH で入れるようにします'),
-    step('2 台目で設定と鍵を作る', 'リポジトリを clone して bun install を済ませてから、1 で出たコマンドを実行します。~/.hannigan/worker.json（案件は空）と secrets/worker-key を書き、hub.json は作りません',
-      `bun scripts/worker-setup.ts --worker office --key <1 で出た鍵> --hub-port ${port}`),
-    step('2 台目から SSH トンネルを張る', 'ワーカーを動かしている間ずっと開けておきます。tmux の中で動かすと閉じにくいです',
-      `tmux new -d -s hn-tunnel 'ssh -N -L ${port}:127.0.0.1:${port} <この Mac の利用者名>@${host}'`),
-    step('2 台目でワーカーを起動する', 'worker.json と鍵があれば初期設定は作らないので、2 台目に hub.json は要りません',
-      'scripts/start.sh worker'),
-    step('この画面で確認して案件を足す', '右の「スレッド」に 2 台目のワーカーが表示名で、緑の点つきで出れば接続済み。「再読み込み」するとこの設定画面に 2 台目の欄が出るので、そこから案件フォルダ（2 台目の中の場所）を登録します。以後は秘書が「役割」と「振り分けの判断基準」を見て使い分けます'),
   );
+  // step 4: the prompt for Claude Code on the other Mac
+  const li = el('li'); li.append(el('b', null, '2 台目の Mac で Claude Code を開き、プロンプトを貼る'),
+    el('div', 'hint', `1 の出力に出たプロンプト（鍵入り）をそのまま貼ります。手元に無いときは下の雛形の「${'<ワーカー ID>'}」と「${'<鍵>'}」を埋めて貼ります。Claude がリポジトリの取得、worker-setup.ts、SSH トンネル、ワーカーの起動まで行い、各段階を報告します。Claude Code を使わないときは、プロンプト内のコマンドを上から順に自分で実行します`));
+  const det = el('details'); det.append(el('summary', null, 'プロンプトの雛形（この Mac の名前と利用者名、ポートは埋めてあります）'));
+  const pre = el('pre', null, sm.prompt_template || '（ハブから雛形を取得できませんでした。「再読み込み」してください）'); det.append(pre);
+  const bb = el('div', 'btns'); bb.append(copyBtn(() => sm.prompt_template || '')); det.append(bb);
+  li.append(det); a.append(li);
+  a.append(step('この画面で確認して案件を足す', '右の「スレッド」に 2 台目のワーカーが表示名で、緑の点つきで出れば接続済み。「再読み込み」するとこの設定画面に 2 台目の欄が出るので、そこから案件フォルダ（2 台目の中の場所）を登録します。以後は秘書が「役割」と「振り分けの判断基準」を見て使い分けます'));
   c.append(a);
-  c.append(el('div', 'hint', '困ったとき: 2 台目が未接続のままなら、トンネルの ssh が生きているか、2 台目の ~/.hannigan/logs/worker.log に connected to hub が出ているかを見ます。この Mac の hub.log に worker auth rejected が出たら鍵違いなので、1 を --force で作り直して 4 を --force で入れ直します。一覧に出ないときは 2 のハブの起動し直しを確かめます。この方式は Phase 3 のローカル実地テスト用で、Phase 4 では VPS 上のハブに WSS でつなぎ、鍵はペアリングコードで交換します'));
+  c.append(el('div', 'hint', `困ったとき: 2 台目が未接続のままなら、2 台目で tmux セッション hn-tunnel の ssh が生きているか、~/.hannigan/logs/worker.log に connected to hub が出ているかを 2 台目の Claude に確かめさせます。この Mac の hub.log に worker auth rejected が出たら鍵違いなので、1 を --force で作り直して新しいプロンプトを貼り直します。一覧に出ないときは 2 のハブの起動し直しを確かめます。この方式は Phase 3 のローカル実地テスト用で、Phase 4 では VPS 上のハブに WSS でつなぎ、鍵はペアリングコードで交換します`));
   root.append(c);
 }
+
 // who the person talks to: name, character, how it addresses them (hub.json secretary.persona, 01 §3.1)
 function renderPersonaSettings(root, r) {
   const h = r.hub; const p = h.secretary.persona || {};
