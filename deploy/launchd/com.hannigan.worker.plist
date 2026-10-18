@@ -1,0 +1,46 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<!--
+  Hannigan worker daemon as a user LaunchAgent (Phase 4 WP3, docs/design/04-vps-deployment.md).
+  Template: scripts/install-launchd.sh fills __BUN__, __REPO__, __HANNIGAN_HOME__ and __PATH__ and writes the
+  result to ~/Library/LaunchAgents/com.hannigan.worker.plist. launchd starts bun worker/daemon.ts at login and
+  restarts it whenever it exits (KeepAlive). Claude Code sessions are created by the daemon in tmux as before;
+  the tmux server has its own process group, and AbandonProcessGroup keeps launchd from killing anything but
+  the daemon itself, so the sessions outlive a daemon restart (the next daemon picks them up again).
+-->
+<plist version="1.0">
+<dict>
+  <key>Label</key>
+  <string>com.hannigan.worker</string>
+  <key>ProgramArguments</key>
+  <array>
+    <string>__BUN__</string>
+    <string>__REPO__/worker/daemon.ts</string>
+  </array>
+  <key>WorkingDirectory</key>
+  <string>__REPO__</string>
+  <key>EnvironmentVariables</key>
+  <dict>
+    <key>HANNIGAN_HOME</key>
+    <string>__HANNIGAN_HOME__</string>
+    <key>PATH</key>
+    <string>__PATH__</string>
+    <key>LANG</key>
+    <string>ja_JP.UTF-8</string>
+  </dict>
+  <key>RunAtLoad</key>
+  <true/>
+  <key>KeepAlive</key>
+  <true/>
+  <key>ThrottleInterval</key>
+  <integer>10</integer>
+  <key>ExitTimeOut</key>
+  <integer>10</integer>
+  <key>AbandonProcessGroup</key>
+  <true/>
+  <key>StandardOutPath</key>
+  <string>__HANNIGAN_HOME__/logs/worker.log</string>
+  <key>StandardErrorPath</key>
+  <string>__HANNIGAN_HOME__/logs/worker.log</string>
+</dict>
+</plist>
