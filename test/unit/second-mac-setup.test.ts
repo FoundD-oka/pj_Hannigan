@@ -195,3 +195,26 @@ test('the key add-worker issues on the hub Mac is what the hub checks against th
   expect(safeEqual(readSecret(second, 'worker-key')!, expected)).toBe(true)
   expect(safeEqual(readSecret(second, 'worker-key')!, readWorkerKeys(hub)['local']!)).toBe(false)
 })
+
+test('setupWorker keepConfig: an existing worker.json keeps its projects and gets the new id and hub url', () => {
+  const home = tmp()
+  const d = join(home, 'proj')
+  require('fs').mkdirSync(d, { recursive: true })
+  setupWorker(home, { worker: 'old', key: 'k1', hubPort: 8800 })
+  const f = join(home, 'worker.json')
+  const cur = readBack(f)
+  cur.projects = [{ id: 'p1', path: d, description: 'keep me' }]
+  cur.max_sessions = 6
+  writeFileSync(f, JSON.stringify(cur))
+  const r = setupWorker(home, { worker: 'office', key: 'k2', hubUrl: 'wss://hub.example/ws/worker', keepConfig: true, force: true })
+  expect(r.wroteConfig).toBe(true)
+  expect(r.wroteKey).toBe(true)
+  const after = readBack(f)
+  expect(after).toMatchObject({ worker_id: 'office', hub_url: 'wss://hub.example/ws/worker', max_sessions: 6 })
+  expect(after.projects).toEqual([{ id: 'p1', path: d, description: 'keep me' }])
+  expect(readSecret(home, 'worker-key')).toBe('k2')
+  // without force the old key is kept
+  const r2 = setupWorker(home, { worker: 'office', key: 'k3', hubUrl: 'wss://hub.example/ws/worker', keepConfig: true })
+  expect(r2.wroteKey).toBe(false)
+  expect(readSecret(home, 'worker-key')).toBe('k2')
+})

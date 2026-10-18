@@ -8,7 +8,7 @@
 // usage: bun scripts/worker-setup.ts --worker <id> --key <key> [--hub-port <port>] [--local-port <port>] [--force]
 //   --hub-port   port the hub listens on (hub.json listen.port, default 8800); the tunnel uses it on both ends
 //   --local-port this worker's own local port (worker.json local.port, default 8801)
-import { existsSync } from 'fs'
+import { existsSync, readFileSync } from 'fs'
 import { join } from 'path'
 import { hanniganHome, ID_RE, WORKER_CONFIG_VERSION, WorkerConfigSchema } from '../shared/config.ts'
 import { readSecret, secretPath, writeSecret } from '../shared/secrets.ts'
@@ -16,7 +16,15 @@ import { ensureDir, writeJsonAtomic } from '../shared/util.ts'
 
 export class WorkerSetupError extends Error {}
 
-export type WorkerSetupOptions = { worker: string; key: string; hubPort?: number; localPort?: number; force?: boolean; hubUrl?: string } // hubUrl: full ws(s) url (pairing); overrides hubPort
+export type WorkerSetupOptions = {
+  worker: string
+  key: string
+  hubPort?: number
+  localPort?: number
+  force?: boolean // overwrite an existing worker.json / key
+  hubUrl?: string // full ws(s) url (pairing); overrides hubPort
+  keepConfig?: boolean // an existing worker.json is kept and only worker_id / hub_url are rewritten (projects stay); the key still needs force
+}
 export type WorkerSetupResult = {
   workerFile: string
   keyFile: string
@@ -43,7 +51,20 @@ export function setupWorker(home: string, o: WorkerSetupOptions): WorkerSetupRes
   const hubUrl = o.hubUrl ?? `ws://127.0.0.1:${hubPort}/ws/worker`
   const workerFile = join(home, 'worker.json')
   let wroteConfig = false
-  if (!existsSync(workerFile) || o.force) {
+  if (existsSync(workerFile) && o.keepConfig) {
+    // re-pointing a Mac that already has projects (e.g. hub moved to the VPS): keep everything but the identity and the hub
+    let cur: Record<string, unknown>
+    try {
+      cur = JSON.parse(readFileSync(workerFile, 'utf8')) as Record<string, unknown>
+    } catch (e) {
+      throw new WorkerSetupError(`${workerFile} is not valid JSON (${(e as Error).message}); fix it or pass --force to rewrite`)
+    }
+    const next = { ...cur, worker_id: o.worker, hub_url: hubUrl }
+    const v = WorkerConfigSchema.safeParse(next)
+    if (!v.success) throw new WorkerSetupError(`${workerFile} would be invalid after the change: ${v.error.issues.map(i => `${i.path.join('.')}: ${i.message}`).join('; ')}`)
+    writeJsonAtomic(workerFile, next)
+    wroteConfig = true
+  } else if (!existsSync(workerFile) || o.force) {
     const worker = {
       version: WORKER_CONFIG_VERSION,
       worker_id: o.worker,

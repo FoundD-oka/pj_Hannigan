@@ -3,7 +3,9 @@
 // worker's key, and write worker.json (no projects) and secrets/worker-key. No hub.json is written here.
 // Then `scripts/start.sh worker` connects over wss:// (hub on the VPS) or ws:// (hub on this Mac / LAN via tunnel).
 //
-// usage: bun scripts/pair.ts <hub_url> <code> --worker <id> [--local-port <port>] [--force]
+// usage: bun scripts/pair.ts <hub_url> <code> --worker <id> [--local-port <port>] [--force] [--fresh]
+//   --force  replace an existing key (re-pairing). An existing worker.json keeps its projects and only gets the new
+//            worker_id / hub_url; add --fresh to rewrite it from scratch.
 //   hub_url  https://hannigan.example.com (hub on a VPS) or http://127.0.0.1:8800 (hub reachable locally)
 //   code     the 8-character code from 設定 → ワーカーを追加 (valid 10 minutes, once)
 import { hanniganHome, ID_RE } from '../shared/config.ts'
@@ -11,7 +13,8 @@ import { setupWorker, WorkerSetupError, type WorkerSetupResult } from './worker-
 
 export class PairError extends Error {}
 
-export type PairOptions = { hubUrl: string; code: string; worker: string; localPort?: number; force?: boolean; fetchImpl?: typeof fetch }
+export type PairOptions = { hubUrl: string; code: string; worker: string; localPort?: number; force?: boolean; fresh?: boolean; fetchImpl?: typeof fetch }
+// default: an existing worker.json keeps its projects and only gets the new worker_id / hub_url; --fresh rewrites it (with --force)
 export type PairResult = WorkerSetupResult & { worker: string }
 
 export function pairEndpoint(hubUrl: string): string {
@@ -55,7 +58,8 @@ export async function pair(home: string, o: PairOptions): Promise<PairResult> {
   if (!res.ok || !data.ok || typeof data.key !== 'string' || typeof data.hub_url !== 'string')
     throw new PairError(`pairing refused (${data.error ?? res.status}): ${data.message ?? 'no details'}`)
   try {
-    const r = setupWorker(home, { worker: o.worker, key: data.key, hubUrl: data.hub_url, localPort: o.localPort, force: o.force })
+    const r = setupWorker(home, { worker: o.worker, key: data.key, hubUrl: data.hub_url, localPort: o.localPort, force: o.force, keepConfig: !o.fresh })
+    if (!r.wroteKey) throw new PairError(`${r.keyFile} already exists and was kept, so the key the hub just issued is NOT stored: run again with --force to replace it`)
     return { ...r, worker: o.worker }
   } catch (e) {
     if (e instanceof WorkerSetupError) throw new PairError(e.message)
@@ -69,7 +73,7 @@ async function main(): Promise<void> {
     const i = args.indexOf(name)
     return i >= 0 ? args[i + 1] : undefined
   }
-  const usage = 'usage: bun scripts/pair.ts <hub_url> <code> --worker <id> [--local-port <port>] [--force]\n'
+  const usage = 'usage: bun scripts/pair.ts <hub_url> <code> --worker <id> [--local-port <port>] [--force] [--fresh]\n'
   if (args.includes('--help') || args.includes('-h')) {
     process.stdout.write(usage)
     process.exit(0)
@@ -85,7 +89,7 @@ async function main(): Promise<void> {
   const home = hanniganHome()
   let r: PairResult
   try {
-    r = await pair(home, { hubUrl, code, worker, localPort: lp === undefined ? undefined : Number(lp), force: args.includes('--force') })
+    r = await pair(home, { hubUrl, code, worker, localPort: lp === undefined ? undefined : Number(lp), force: args.includes('--force'), fresh: args.includes('--fresh') })
   } catch (e) {
     if (e instanceof PairError) {
       process.stderr.write(`pair: ${e.message}\n`)
