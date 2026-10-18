@@ -1,7 +1,7 @@
 #!/usr/bin/env bun
 // Takes the screenshots for docs/manual with the real hub + worker + real Claude Code (uses plan usage, --effort low),
 // driving the WebChat page in headless Chrome over the DevTools protocol (no npm dependency).
-// usage: bun scripts/manual-shots.ts <out-dir> [--settings-only] [--dry]   (--settings-only: fake Claude, settings screens only)
+// usage: bun scripts/manual-shots.ts <out-dir> [--settings-only|--fake-chat] [--dry]   (--settings-only: fake Claude, settings screens only; --fake-chat: fake Claude, chat / thread / phone)
 import { mkdirSync, writeFileSync, existsSync } from 'fs'
 import { join } from 'path'
 import { Harness, type Ev } from '../test/harness.ts'
@@ -83,10 +83,12 @@ class CDP {
 // ------------------------------------------------------------------ scenario
 const extra = ['--effort', 'low']
 const SETTINGS_ONLY = process.argv.includes('--settings-only')
+const FAKE_CHAT = process.argv.includes('--fake-chat') // fake Claude: a conversation, a thread and the phone view, for checking the UI
+const FAKE = SETTINGS_ONLY || FAKE_CHAT
 const demoHome = join(process.env.HOME!, 'hannigan-manual-demo')
-if (SETTINGS_ONLY) mkdirSync(join(demoHome, 'notes'), { recursive: true })
+if (FAKE) mkdirSync(join(demoHome, 'notes'), { recursive: true })
 const h = new Harness({
-  ...(SETTINGS_ONLY ? { projectPaths: { notes: join(demoHome, 'notes') } } : { claudeBin: 'claude' }),
+  ...(FAKE ? { projectPaths: { notes: join(demoHome, 'notes') } } : { claudeBin: 'claude' }),
   projects: ['notes'],
   secretaryAutostart: false,
   workerSession: { extra_args: extra },
@@ -169,6 +171,28 @@ try {
   await Bun.sleep(1200)
   await cdp.shot('01-home')
   if (process.argv.includes('--dry')) throw new Error('dry run done')
+  if (FAKE_CHAT) {
+    const s0 = h.lastSeq()
+    await typeAndSend('pm local notes direct:README を読んで要約して')
+    await answerUntil(reply(s0), { dev_channel_warning: 'fake-approval' }, s0)
+    await Bun.sleep(800)
+    await cdp.shot('fake-chat')
+    await cdp.eval(`document.getElementById('themeBtn').click()`)
+    await Bun.sleep(300)
+    await cdp.shot('fake-chat-dark')
+    await cdp.eval(`document.getElementById('themeBtn').click()`)
+    await cdp.eval(`(() => { const r = document.querySelector('#threads .row'); r && r.click() })()`)
+    await Bun.sleep(1200)
+    await cdp.shot('fake-thread')
+    await cdp.eval(`(() => { const b = [...document.querySelectorAll('#thread button')].find(x => /会話へ戻る/.test(x.textContent)); b && b.click() })()`)
+    await cdp.viewport(390, 844)
+    await Bun.sleep(600)
+    await cdp.shot('fake-phone')
+    await cdp.eval(`document.getElementById('panelBtn').click()`)
+    await Bun.sleep(400)
+    await cdp.shot('fake-phone-panel')
+    throw new Error('fake chat done')
+  }
   if (SETTINGS_ONLY) {
     await cdp.eval(`document.getElementById('settingsBtn').click()`)
     await Bun.sleep(1500)
