@@ -11,8 +11,8 @@ import { join } from 'path'
 import { hanniganHome, HUB_CONFIG_VERSION, HubConfigSchema, ID_RE, loadHubConfig } from '../shared/config.ts'
 import { newToken, readWorkerKeys, writeSecret } from '../shared/secrets.ts'
 import { readJson, writeJsonAtomic } from '../shared/util.ts'
-import { secondMacPrompt } from '../shared/second-mac-prompt.ts'
-import { hostname, userInfo } from 'os'
+import { lanAddresses, secondMacPrompt } from '../shared/second-mac-prompt.ts'
+import { hostname, networkInterfaces, userInfo } from 'os'
 
 export class AddWorkerError extends Error {}
 
@@ -108,7 +108,7 @@ function main(): void {
   out()
   const hn = hostname()
   out('----- 8< ----- paste into Claude Code on the other Mac -----')
-  out(secondMacPrompt({ worker, key: r.key, hubPort: r.hubPort, hubHost: hn.includes('.') ? hn : `${hn}.local`, hubUser: userInfo().username }))
+  out(secondMacPrompt({ worker, key: r.key, hubPort: r.hubPort, hubHost: hn.includes('.') ? hn : `${hn}.local`, hubUser: userInfo().username, hubAddresses: lanAddresses(networkInterfaces() as Parameters<typeof lanAddresses>[0]) }))
   out('----- 8< -----')
 }
 

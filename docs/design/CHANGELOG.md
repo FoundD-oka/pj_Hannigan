@@ -200,7 +200,8 @@
 
 - 2 台目の Mac 側の手順を「その Mac の Claude Code に貼るプロンプト」にした（`shared/second-mac-prompt.ts`）。リポジトリの取得、`worker-setup.ts`、SSH の疎通確認（鍵認証の案内つき）、tmux での SSH トンネル、`/health` の確認、`start.sh worker`、ログの確認、報告までを Claude が行い、sudo・鍵生成・削除は実行前に確認を取る。やらないこと（hub.json を作らない、ポートを公開しない、鍵を書き換えない）も書いた
 - `scripts/add-worker.ts` は最後に鍵入りのプロンプトを 1 回だけ表示する。ハブの `GET /api/settings` は `second_mac`（ホスト名・利用者名・ポート・雛形）を返し、設定画面の手順カードは 1 台目のコマンドと雛形を「コピー」ボタンつきで示す。雛形に本物の鍵は入らない
-- 単体 `second-mac-prompt.test.ts`（値の埋め込み、雛形に鍵が無いこと）。実機の 2 台目では未確認
+- 単体 `second-mac-prompt.test.ts`（値の埋め込み、雛形に鍵が無いこと）
+- 実機の 2 台目で最初に試した結果（2026-10-18）: 公開リポジトリが古く（push 漏れ）、ハブ Mac の Bonjour 名が解決できなかった（2 台が別ネットワーク）。プロンプトに、リポジトリにスクリプトが無ければ止まる判定、`ping`／`nc` での到達確認、ハブ Mac の LAN IP（`GET /api/settings` の `second_mac.addresses`）での再試行、名前も IP も届かなければ別ネットワークとして止まる判定を足した
 
 ## 変更していないこと
 

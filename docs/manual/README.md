@@ -230,10 +230,11 @@ Claude は次を順に行い、各段階を報告する。sudo が要る操作�
 
 1. リポジトリを `~/pj-Hannigan` に取得して `bun install`
 2. `bun scripts/worker-setup.ts --worker <ID> --key <鍵> --hub-port 8800` で `~/.hannigan/worker.json`（案件は空）と `secrets/worker-key` を書く。`hub.json` は作らない
-3. `ssh -o BatchMode=yes <利用者名>@<1 台目>` で疎通を確かめる。鍵認証が無ければ `ssh-keygen` と `ssh-copy-id` を案内する（パスワードはあなたが入力する）
-4. tmux セッション `hn-tunnel` で SSH トンネル（`-L 8800:127.0.0.1:8800`、`ServerAliveInterval` つき）を張り、`curl http://127.0.0.1:8800/health` で `{"ok":true}` を確かめる
-5. `scripts/start.sh worker` で起動し、`~/.hannigan/logs/worker.log` の `connected to hub` を確かめる
-6. 結果と変更したファイル、残った問題を報告する
+3. `ping` と `nc` で 1 台目に届くか確かめる。名前が解決できなければ 1 台目の IP（プロンプトに埋めてある）で試し、名前も IP も届かなければ「別ネットワークにいる」と報告して止まる（同じ Wi-Fi／LAN につなぐか、Tailscale のような仕組みが要る）
+4. `ssh -o BatchMode=yes <利用者名>@<1 台目>` で疎通を確かめる。鍵認証が無ければ `ssh-keygen` と `ssh-copy-id` を案内する（パスワードはあなたが入力する）
+5. tmux セッション `hn-tunnel` で SSH トンネル（`-L 8800:127.0.0.1:8800`、`ServerAliveInterval` つき）を張り、`curl http://127.0.0.1:8800/health` で `{"ok":true}` を確かめる
+6. `scripts/start.sh worker` で起動し、`~/.hannigan/logs/worker.log` の `connected to hub` を確かめる
+7. 結果と変更したファイル、残った問題を報告する
 
 Claude Code を使わないときは、プロンプトの中のコマンドを上から順に自分で実行すれば同じになる。プロンプトの本文は [shared/second-mac-prompt.ts](../../shared/second-mac-prompt.ts) にある。
 
@@ -246,5 +247,7 @@ Claude Code を使わないときは、プロンプトの中のコマンドを�
 | 2 台目が「未接続」のまま | 2 台目の Claude に、tmux セッション `hn-tunnel` の `ssh` が生きているか、`~/.hannigan/logs/worker.log` に `connected to hub` が出ているかを確かめさせる |
 | 1 台目の `hub.log` に `worker auth rejected` | 鍵が違う。1 台目で `add-worker.ts --worker <ID> --force` で作り直し、出てきた新しいプロンプトを 2 台目の Claude に貼り直す（`worker-setup.ts` には `--force` を付けるよう伝える） |
 | 2 台目のワーカーが一覧に出ない | 1 台目のハブを起動し直したか（`stop.sh` と `start.sh`） |
+| 2 台目の Claude が「公開リポジトリが古い」と報告する | 1 台目の変更が GitHub に push されていない。1 台目で `git push origin main` してから、2 台目で `git -C ~/pj-Hannigan pull` |
+| 2 台目の Claude が「別ネットワークにいる」と報告する | 2 台の IP の先頭 3 つが違う。同じ Wi-Fi／LAN につなぐか、Tailscale のような仕組みで同じネットワークに見せる。Phase 4 の VPS 構成ならこの制約は無くなる |
 
 この方式は Phase 3 のローカル実地テスト用。Phase 4 では VPS 上のハブに WSS でつなぎ、鍵はペアリングコードで交換する。

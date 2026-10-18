@@ -5,7 +5,7 @@
 // ledger.ts (shared work items), threads.ts (WebChat thread view), secretary.ts (tools and instructions).
 import type { Server as BunServer, ServerWebSocket } from 'bun'
 import { readFileSync } from 'fs'
-import { hostname, userInfo } from 'os'
+import { hostname, networkInterfaces, userInfo } from 'os'
 import { join, sep } from 'path'
 import { canonical, ConfigError, ID_RE, loadHubConfig } from '../shared/config.ts'
 import {
@@ -39,7 +39,7 @@ import { OfflineQueue } from './offline-queue.ts'
 import { RequestStore, type RequestState } from './requests.ts'
 import { SECRETARY_TOOLS, secretaryInstructions } from './secretary.ts'
 import { planHubSettings, SettingsError } from './settings.ts'
-import { secondMacPromptTemplate } from '../shared/second-mac-prompt.ts'
+import { lanAddresses, secondMacPromptTemplate } from '../shared/second-mac-prompt.ts'
 import { buildThreads, coverageOf, nextCoverage, threadHistory, type Coverage } from './threads.ts'
 
 let cfg: ReturnType<typeof loadHubConfig>
@@ -1295,7 +1295,8 @@ function secondMac() {
   const hn = hostname()
   const hubHost = hn.includes('.') ? hn : `${hn}.local`
   const hubUser = userInfo().username
-  return { hostname: hubHost, user: hubUser, port: cfg.listen.port, prompt_template: secondMacPromptTemplate({ hubPort: cfg.listen.port, hubHost, hubUser }) }
+  const hubAddresses = lanAddresses(networkInterfaces() as Parameters<typeof lanAddresses>[0])
+  return { hostname: hubHost, user: hubUser, port: cfg.listen.port, addresses: hubAddresses, prompt_template: secondMacPromptTemplate({ hubPort: cfg.listen.port, hubHost, hubUser, hubAddresses }) }
 }
 
 function saveHubSettings(input: unknown): Response {

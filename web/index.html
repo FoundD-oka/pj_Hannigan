@@ -588,7 +588,8 @@ function renderSecondMacGuide(root, r) {
   // step 4: the prompt for Claude Code on the other Mac
   const li = el('li'); li.append(el('b', null, '2 台目の Mac で Claude Code を開き、プロンプトを貼る'),
     el('div', 'hint', `1 の出力に出たプロンプト（鍵入り）をそのまま貼ります。手元に無いときは下の雛形の「${'<ワーカー ID>'}」と「${'<鍵>'}」を埋めて貼ります。Claude がリポジトリの取得、worker-setup.ts、SSH トンネル、ワーカーの起動まで行い、各段階を報告します。Claude Code を使わないときは、プロンプト内のコマンドを上から順に自分で実行します`));
-  const det = el('details'); det.append(el('summary', null, 'プロンプトの雛形（この Mac の名前と利用者名、ポートは埋めてあります）'));
+  if (sm.hostname) li.append(el('div', 'hint', `この Mac: ${sm.user || ''}@${sm.hostname}${(sm.addresses || []).length ? '、IP ' + sm.addresses.join(' / ') : ''}。2 台目はこの名前か IP に SSH で届く必要があります。IP の先頭 3 つの数字が 2 台目と違うときは別ネットワークなので、同じ Wi-Fi／LAN につなぐか Tailscale のような仕組みが要ります`));
+  const det = el('details'); det.append(el('summary', null, 'プロンプトの雛形（この Mac の名前・利用者名・IP・ポートは埋めてあります）'));
   const pre = el('pre', null, sm.prompt_template || '（ハブから雛形を取得できませんでした。「再読み込み」してください）'); det.append(pre);
   const bb = el('div', 'btns'); bb.append(copyBtn(() => sm.prompt_template || '')); det.append(bb);
   li.append(det); a.append(li);
