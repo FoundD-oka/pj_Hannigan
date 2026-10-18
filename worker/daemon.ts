@@ -103,7 +103,9 @@ function connectHub(): void {
     if (wasReady) log(C, 'hub connection lost; reconnecting', { in_ms: d })
     setTimeout(connectHub, d)
   }
-  ws.onerror = () => {}
+  ws.onerror = () => {
+    if (!hubReady) log(C, 'hub connection failed', { hub: cfg.hub_url, scheme: new URL(cfg.hub_url).protocol.replace(':', '') })
+  }
 }
 
 // ---------------------------------------------------------------- commands

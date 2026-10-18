@@ -203,6 +203,14 @@
 - 単体 `second-mac-prompt.test.ts`（値の埋め込み、雛形に鍵が無いこと）
 - 実機の 2 台目で最初に試した結果（2026-10-18）: 公開リポジトリが古く（push 漏れ）、ハブ Mac の Bonjour 名が解決できなかった（2 台が別ネットワーク）。プロンプトに、リポジトリにスクリプトが無ければ止まる判定、`ping`／`nc` での到達確認、ハブ Mac の LAN IP（`GET /api/settings` の `second_mac.addresses`）での再試行、名前も IP も届かなければ別ネットワークとして止まる判定を足した
 
+## Phase 4 WP1 ペアリングと WSS — 2026-10-18
+
+- 01 §6 の形を実装した。`hub/pairing.ts`（コードの発行・照合、有効期限 10 分、1 回限り、ID 違い 5 回で無効、知らないコード 20 回で発行し直すまで停止、定数時間比較、`hub/pairing.json` はハブ起動時に空にする）、`POST /api/pairing/start` / `cancel`、`POST /pair`（トークン不要の唯一の経路）、`scripts/pair.ts`（作業 Mac 側。平文 http は 127.0.0.1 宛てだけ）。成功時は鍵の発行、`hub.json` の `workers[]` 追記、実行中の設定への追加まで行い、ハブの再起動が要らなくなった
+- 設定画面に「ワーカーを追加（別の Mac をつなぐ）」を置き、コードと 2 台目で打つコマンド、2 台目の Claude Code に貼るプロンプト（ID とコード入り）を出す。手順カードは `public_url` の有無で「VPS（wss、SSH 不要）」と「この Mac（SSH トンネル）」の文面を切り替える。`shared/second-mac-prompt.ts` も同じ 2 構成に対応し、資格情報はコード（ペアリング）か鍵（旧 add-worker.ts）
+- `worker.json` の `hub_url` は `wss://` でそのまま動く（Bun の WebSocket）。TLS 検証を切る設定は作らない。接続失敗時のログに URL の種別を出す
+- 試験: 単体 `hub-pairing.test.ts`、通し `e2e-fake/pairing.test.ts`（コード発行 → `pair()` で鍵取得と `worker.json` → 別ホームのワーカー起動 → 再起動なしで接続。ID 違い、使用済み、知らないコード、登録済み ID、取消の拒否）。wss の実機確認は WP2 の VPS 配置の後
+- `scripts/add-worker.ts` ＋ `worker-setup.ts` は残した（ハブに HTTP で届かない状況用）。マニュアル 11 章はペアリング方式に書き換え
+
 ## 変更していないこと
 
 - 既存の Channels/ブリッジ/セッション管理/イベント・承認プロトコルの基本設計。

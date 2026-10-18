@@ -199,14 +199,16 @@ PM は同じ Mac の案件フォルダを読み、必要に応じてローカル
 - 秘密情報はログ、出来事の記録、エラーメッセージ、`ps` に出る引数に載せない。チャネル中継へはファイルの場所だけを環境変数で渡す
 - Mac では将来 OS のキーチェーンに移せるよう、読み書きは `shared/secrets.ts` の 1 か所に閉じ込める。Linux VPS では少なくともファイル権限と運用ユーザー権限を厳格に管理する
 
-## 6. ペアリング（Phase 4 で実装、形だけ確定）
+## 6. ペアリング（Phase 4 WP1 で実装。2026-10-18）
 
-1. 利用者が WebChat の設定画面で「ワーカーを追加」を押す。ハブが 8 桁の一時コード（10 分有効、1 回限り）を発行する
-2. 作業 Mac で `hannigan pair <hub_url> <code>` を実行する。ワーカーが一時コードと自分の `worker_id` をハブへ送る
-3. ハブがコードを確かめ、新しい鍵を生成して `worker-keys.json` に追記し、ワーカーへ返す。ワーカーは `worker-key` に保存する
-4. 以後の接続は鍵で認証する。鍵の取り消しはハブの `worker-keys.json` から消すだけで済む
+1. 利用者が WebChat の設定画面「ワーカーを追加」でワーカー ID・表示名・役割を入れて「コードを発行」する。ハブが `POST /api/pairing/start`（WebChat トークン必須）で 8 文字の一時コード（英大文字と数字、紛らわしい 0/O/1/I を除く。10 分有効、1 回限り）を発行し、`hub/pairing.json` に保存する。同じ ID の発行中のコードは置き換える。登録済みの ID（`workers[]` か `worker-keys.json` にある）には発行しない
+2. 作業 Mac で `bun scripts/pair.ts <hub_url> <code> --worker <id>` を実行する。`hub_url` は `https://…`（VPS）か `http://127.0.0.1:<port>`（同じ Mac か SSH トンネル経由）。平文 `http://` は 127.0.0.1 宛て以外を断る。スクリプトが `POST /pair`（トークン不要。コードが資格情報）に `{ code, worker }` を送る
+3. ハブがコードを定数時間で照合し、新しい鍵を生成して `worker-keys.json` に追記、`hub.json` の `workers[]` に項目を足して原子的に書き、実行中の設定にも足す（再起動なしで接続でき、秘書の指示文には次の起動から入る）。返り値 `{ key, hub_url }`（`hub_url` は `public_url` から導いた `wss://…/ws/worker`、無ければ `ws://127.0.0.1:<port>/ws/worker`）。出来事 `worker_paired`（ID だけ）と `settings_changed` を記録し、鍵とコードは出来事・ログに書かない
+4. 作業 Mac が `worker.json`（案件は空、`hub_url` は返り値のもの）と `secrets/worker-key` を書く。以後の接続は鍵で認証する。鍵の取り消しはハブの `worker-keys.json` から消すだけで済む
 
-Phase 2〜3 のローカル実地テストではペアリングを作らず、`scripts/dev-setup.ts` が同一ホストに両方の鍵ファイルを書く。VPS と Mac を分離した本番構成では、Phase 4 のペアリングを前提とする。
+fail closed: 知らないコードは `unknown_code`（403）、期限切れは `expired`、ワーカー ID 違いはそのコードの失敗として数え 5 回で無効（`too_many_failures`）、知らないコードの入力が 10 分の窓で 20 回続くと新しいコードを発行するまで全部断る（`locked`、429）。ハブの再起動で発行中のコードは全部失効する。`GET /api/settings` の `pairing` は発行中のコードの ID と期限だけを返し、コードは発行時の応答にしか出ない。
+
+Phase 2〜3 の `scripts/dev-setup.ts`（同一ホスト）と `scripts/add-worker.ts` ＋ `scripts/worker-setup.ts`（鍵の手渡し）は残すが、別の Mac を足す普段の経路はペアリングとする。
 
 ## 7. 設定に入れないもの
 
@@ -528,6 +530,9 @@ Phase 5 の設定画面のうち、7 日間の日常運用（Phase 3 の出口�
 | `GET /api/settings` | `hub`（上の hub.json の項目と各ワーカーの接続状態）、`worker_projects`（ワーカーごとの案件と PM 設定。接続中のワーカーには `list` を送って案件フォルダも取る）、`paths_known`（フォルダを取れたワーカー）、`fixed`（`listen`・`public_url`・秘密情報。`editable: false`。記録には残さない）、`second_mac`（2026-10-18 追加。画面の「2 台目の Mac をつなぐ（手順）」用に、ハブの Mac のホスト名・利用者名・ポートと、2 台目の Claude Code に貼るプロンプトの雛形 `prompt_template`。雛形のワーカー ID と鍵は `<ワーカー ID>` `<鍵>` のままで、本物の鍵は `scripts/add-worker.ts` の出力にしか出ない。記録には残さない） |
 | `POST /api/settings/hub` | 上の hub.json の項目だけを受け付ける。今の `hub.json` の JSON に差分を書き込み、起動時と同じ検証（`HubConfigSchema` と `checkHubConfig`）を通してから原子的に書き込み、動いているハブに反映する。返り値 `{ ok, changed, applies: { now, next_secretary_start, restart }, settings }` |
 | `POST /api/settings/worker` | `{ worker, projects }`。ハブはワーカーへ命令 `config_set`（03 §2.3）を送り、結果をそのまま返す。ワーカーが未接続なら `worker_offline` で断る。オフライン保留はしない |
+| `POST /api/pairing/start` | `{ worker, display_name?, role? }`。6 章のコードを発行し `{ code, expires_at, pair_url, command }` を返す（2026-10-18 追加） |
+| `POST /api/pairing/cancel` | `{ worker }`。発行中のコードを消す |
+| `POST /pair` | **トークン不要**。`{ code, worker }` を照合して鍵を発行する（6 章）。`/api/` の外にある唯一の書き込み経路 |
 
 変更が成功すると、ハブは出来事 `settings_changed`（`scope: hub | worker`、変わった項目名や案件 ID だけ。値や秘密は入れない）を記録し、画面の在庫表示を更新する。
 

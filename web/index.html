@@ -425,7 +425,8 @@ function onEvent(e) {
   if (view.mode === 'thread' && th && inThread(e, th.worker, th.session) && !th.seqs.has(e.seq)) { th.seqs.add(e.seq); const d = threadItem(e); if (d) append(th.list, d); }
   applyDeliveryState(e);
   if (view.mode === 'settings' && e.kind === 'worker_link') refreshSettingsConn(e.worker, e.connected);
-  if (['settings_changed','session_state','worker_link','inventory','offline_request_state','request_expired','resource_lease_state','secretary_context','secretary_idle_stop','direct_delivery_state','request_state'].includes(e.kind)) refreshState();
+  if (view.mode === 'settings' && ['worker_paired','pairing_started','pairing_cancelled'].includes(e.kind)) { /* the list of open pairings and the worker rows come from the hub */ }
+  if (['settings_changed','worker_paired','session_state','worker_link','inventory','offline_request_state','request_expired','resource_lease_state','secretary_context','secretary_idle_stop','direct_delivery_state','request_state'].includes(e.kind)) refreshState();
 }
 
 function showView() {
@@ -564,41 +565,6 @@ function loadSettings() {
     renderSecondMacGuide(root, r);
   });
 }
-// how to add another Mac as a worker (Phase 3): a key issued on this Mac, then Claude Code on the other Mac does the
-// rest from a prompt (shared/second-mac-prompt.ts; docs/manual 11 章)
-function copyBtn(getText) {
-  const b = el('button', null, 'コピー'); b.type = 'button';
-  b.onclick = () => { navigator.clipboard.writeText(getText()).then(() => { b.textContent = 'コピーしました'; setTimeout(() => { b.textContent = 'コピー'; }, 1500); }, () => { b.textContent = 'コピーできませんでした（手で選択してください）'; }); };
-  return b;
-}
-function renderSecondMacGuide(root, r) {
-  const sm = r.second_mac || {};
-  const port = sm.port || (r.fixed && r.fixed.listen && r.fixed.listen.port) || 8800;
-  root.append(el('h2', null, '2 台目の Mac をつなぐ（手順）'));
-  const c = el('div', 'card guide');
-  c.append(el('div', 'role', `ワーカーの追加は鍵の発行を伴うので、この画面からはできません。この Mac で 1 回コマンドを打ち、2 台目の作業はその Mac の Claude Code に任せます。ハブ（この画面と秘書）はこの Mac に置いたまま、2 台目はワーカーだけを動かし、SSH トンネル（SSH 接続の中に別の通信を通す仕組み）でこの Mac の 127.0.0.1:${port} に届きます。ハブのポートは LAN に公開しません`));
-  const step = (title, body, cmd) => { const li = el('li'); li.append(el('b', null, title), el('div', 'hint', body)); if (cmd) { const pre = el('pre', null, cmd); li.append(pre); const bb = el('div', 'btns'); bb.append(copyBtn(() => cmd)); li.append(bb); } return li; };
-  const a = el('ol');
-  const addCmd = 'bun scripts/add-worker.ts --worker office --name "仕事 Mac" --role "仕事用。会社のリポジトリはこちら"';
-  a.append(
-    step('この Mac で 2 台目を登録する（端末、リポジトリのフォルダで）', 'ワーカー ID（英数字と - _、32 文字まで）、表示名、役割（秘書が振り分けに使う文章）を決めて実行します。鍵を 1 つ作って secrets/worker-keys.json と hub.json に足し、最後に「2 台目の Claude Code に貼るプロンプト」が鍵入りで 1 回だけ出ます。同じ ID があるときは断るので、鍵を作り直すときだけ --force を付けます', addCmd),
-    step('ハブを起動し直す', 'ワーカー一覧はハブの起動時にしか読みません。stop.sh はこの Mac のワーカーも止めるので、両方をもう一度起動します', 'scripts/stop.sh && scripts/start.sh'),
-    step('この Mac でリモートログインをオンにする', 'システム設定 > 一般 > 共有 > 「リモートログイン」。2 台目から SSH で入れるようにします'),
-  );
-  // step 4: the prompt for Claude Code on the other Mac
-  const li = el('li'); li.append(el('b', null, '2 台目の Mac で Claude Code を開き、プロンプトを貼る'),
-    el('div', 'hint', `1 の出力に出たプロンプト（鍵入り）をそのまま貼ります。手元に無いときは下の雛形の「${'<ワーカー ID>'}」と「${'<鍵>'}」を埋めて貼ります。Claude がリポジトリの取得、worker-setup.ts、SSH トンネル、ワーカーの起動まで行い、各段階を報告します。Claude Code を使わないときは、プロンプト内のコマンドを上から順に自分で実行します`));
-  if (sm.hostname) li.append(el('div', 'hint', `この Mac: ${sm.user || ''}@${sm.hostname}${(sm.addresses || []).length ? '、IP ' + sm.addresses.join(' / ') : ''}。2 台目はこの名前か IP に SSH で届く必要があります。IP の先頭 3 つの数字が 2 台目と違うときは別ネットワークなので、同じ Wi-Fi／LAN につなぐか Tailscale のような仕組みが要ります`));
-  const det = el('details'); det.append(el('summary', null, 'プロンプトの雛形（この Mac の名前・利用者名・IP・ポートは埋めてあります）'));
-  const pre = el('pre', null, sm.prompt_template || '（ハブから雛形を取得できませんでした。「再読み込み」してください）'); det.append(pre);
-  const bb = el('div', 'btns'); bb.append(copyBtn(() => sm.prompt_template || '')); det.append(bb);
-  li.append(det); a.append(li);
-  a.append(step('この画面で確認して案件を足す', '右の「スレッド」に 2 台目のワーカーが表示名で、緑の点つきで出れば接続済み。「再読み込み」するとこの設定画面に 2 台目の欄が出るので、そこから案件フォルダ（2 台目の中の場所）を登録します。以後は秘書が「役割」と「振り分けの判断基準」を見て使い分けます'));
-  c.append(a);
-  c.append(el('div', 'hint', `困ったとき: 2 台目が未接続のままなら、2 台目で tmux セッション hn-tunnel の ssh が生きているか、~/.hannigan/logs/worker.log に connected to hub が出ているかを 2 台目の Claude に確かめさせます。この Mac の hub.log に worker auth rejected が出たら鍵違いなので、1 を --force で作り直して新しいプロンプトを貼り直します。一覧に出ないときは 2 のハブの起動し直しを確かめます。この方式は Phase 3 のローカル実地テスト用で、Phase 4 では VPS 上のハブに WSS でつなぎ、鍵はペアリングコードで交換します`));
-  root.append(c);
-}
-
 // who the person talks to: name, character, how it addresses them (hub.json secretary.persona, 01 §3.1)
 function renderPersonaSettings(root, r) {
   const h = r.hub; const p = h.secretary.persona || {};
@@ -666,8 +632,9 @@ function renderHubSettings(root, r) {
     const box = el('div', 'proj-edit'); box.append(el('div', 'role', `ID: ${w.id}`), field('表示名', dn), field('役割（秘書が振り分けに使う）', role));
     c.append(box); wrows.push({ id: w.id, dn, role });
   }
+  c.append(renderPairing(r));
   const fx = r.fixed || {};
-  c.append(el('div', 'hint', `変更できない項目: 待ち受け ${fx.listen ? fx.listen.host + ':' + fx.listen.port : ''}、公開 URL ${fx.public_url && fx.public_url.value || 'なし'}、秘密情報（トークンと鍵）、ワーカーの追加と削除。これらは hub.json と secrets/ を編集してハブを再起動します`));
+  c.append(el('div', 'hint', `変更できない項目: 待ち受け ${fx.listen ? fx.listen.host + ':' + fx.listen.port : ''}、公開 URL ${fx.public_url && fx.public_url.value || 'なし'}、秘密情報（トークンと鍵）、ワーカーの削除。これらは hub.json と secrets/ を編集してハブを再起動します`));
   const msg = el('div', 'msg'); const save = el('button', 'allow', 'ハブの設定を保存');
   save.onclick = () => {
     const body = {
@@ -743,6 +710,73 @@ function refreshSettingsConn(worker, connected) {
   c.querySelector('fieldset').disabled = !connected;
   c.querySelector('.dot').className = 'dot' + (connected ? ' on' : '');
   c.querySelector('.conntext').textContent = connected ? '接続中（最新の内容は「再読み込み」で取得）' : 'ワーカーがオフライン。Mac でワーカーが動いているときに編集できます';
+}
+function copyBtn(getText) {
+  const b = el('button', null, 'コピー'); b.type = 'button';
+  b.onclick = () => { navigator.clipboard.writeText(getText()).then(() => { b.textContent = 'コピーしました'; setTimeout(() => { b.textContent = 'コピー'; }, 1500); }, () => { b.textContent = 'コピーできませんでした（手で選択してください）'; }); };
+  return b;
+}
+// adding a worker = pairing (04 WP1, 01 §6): the hub issues a one-time code here, the new Mac runs scripts/pair.ts
+// with it and gets its key. The code is shown once; only the open pairings (id, expiry) come back from the hub.
+function renderPairing(r) {
+  const box = el('div', 'proj-edit'); box.append(el('div', 'label', 'ワーカーを追加（別の Mac をつなぐ）'));
+  const sm = r.second_mac || {};
+  const open = r.pairing || [];
+  if (open.length) { const o = el('div', 'hint'); o.textContent = '発行中のコード: ' + open.map(x => `${x.worker}（${dt(x.expires_at)} まで）`).join('、') + '。コードは発行したときの画面にだけ出ます。期限が切れたら発行し直します'; box.append(o); }
+  const id = input('text', '', { placeholder: '例: office（英数字と - _）', maxLength: 32 });
+  const dn = input('text', '', { placeholder: '例: 仕事 Mac', maxLength: 80 });
+  const role = input('textarea', '', { placeholder: '例: 仕事用。会社のリポジトリはこちら', rows: 2 });
+  box.append(field('ワーカー ID', id), field('表示名', dn), field('役割（秘書が振り分けに使う）', role));
+  const msg = el('div', 'msg'); const go = el('button', 'allow', 'コードを発行'); go.type = 'button';
+  const result = el('div');
+  go.onclick = () => {
+    const worker = id.value.trim(); if (!worker) { msg.className = 'msg ng'; msg.textContent = 'ワーカー ID を入れてください'; return; }
+    go.disabled = true; msg.className = 'msg'; msg.textContent = '発行中…'; result.textContent = '';
+    api('/api/pairing/start', { worker, display_name: dn.value.trim() || null, role: role.value }).then(res => {
+      go.disabled = false;
+      if (!res.ok) { msg.className = 'msg ng'; msg.textContent = '発行できませんでした: ' + (res.message || res.error || res.http); return; }
+      msg.className = 'msg ok'; msg.textContent = `コードを発行しました（${dt(res.expires_at)} まで、1 回だけ使えます）。この画面を閉じると見られなくなるので、今のうちに控えます`;
+      const code = el('div'); code.style.cssText = 'font:600 28px/1.2 ui-monospace, Menlo, monospace; letter-spacing:.18em; margin:8px 0 4px;'; code.textContent = res.code;
+      const cmd = el('pre', null, res.command);
+      const bb = el('div', 'btns'); bb.append(copyBtn(() => res.command));
+      const prompt = (sm.prompt_template || '').replace('<ワーカー ID>', worker).replace('<コード>', res.code);
+      const det = el('details'); det.append(el('summary', null, 'その Mac の Claude Code に貼るプロンプト（ID とコード入り）'));
+      det.append(el('pre', null, prompt)); const pb = el('div', 'btns'); pb.append(copyBtn(() => prompt)); det.append(pb);
+      result.append(code, el('div', 'hint', 'つなぐ Mac で、リポジトリのフォルダから:'), cmd, bb, det);
+      id.value = ''; dn.value = ''; role.value = ''; refreshState();
+    });
+  };
+  const bb = el('div', 'btns'); bb.append(go); box.append(bb, msg, result);
+  box.append(el('div', 'hint', `コードは 10 分で切れ、ワーカー ID が違う入力が 5 回続くと無効になります。つながると一覧に出て、秘書の指示文には次に秘書が起動したときに入ります。${sm.public_url ? 'ハブは VPS（' + sm.public_url + '）なので、相手の Mac はインターネットに出られれば届きます' : 'ハブはこの Mac で待ち受けているので、相手の Mac からは SSH トンネルで ' + (sm.pair_url || '') + ' に届く必要があります（下の手順）'}`));
+  return box;
+}
+// how to add another Mac as a worker: the pairing above, plus what the other Mac does (Claude Code there runs the
+// prompt from shared/second-mac-prompt.ts). The SSH tunnel steps apply only while the hub runs on a Mac.
+function renderSecondMacGuide(root, r) {
+  const sm = r.second_mac || {};
+  const vps = !!sm.public_url;
+  root.append(el('h2', null, '2 台目の Mac をつなぐ（手順）'));
+  const c = el('div', 'card guide');
+  c.append(el('div', 'role', vps
+    ? `ハブは VPS（${sm.public_url}）で動いているので、相手の Mac はインターネットに出られれば wss でつながります。ポート開放や VPN は要りません。この画面でコードを発行し、相手の Mac の Claude Code にプロンプトを貼るだけです`
+    : `ハブはこの Mac で待ち受けていて、LAN にも公開していません。相手の Mac は SSH トンネル（SSH 接続の中に別の通信を通す仕組み）でこの Mac の ${sm.pair_url || '127.0.0.1'} に届く必要があります。別の場所にある Mac はこの方式では届かないので、ハブを VPS に置きます（docs/design/04-vps-deployment.md）`));
+  const step = (title, body, cmd) => { const li = el('li'); li.append(el('b', null, title), el('div', 'hint', body)); if (cmd) { const pre = el('pre', null, cmd); li.append(pre); const bb = el('div', 'btns'); bb.append(copyBtn(() => cmd)); li.append(bb); } return li; };
+  const a = el('ol');
+  a.append(step('この画面でコードを発行する', '上の「ワーカーを追加」にワーカー ID・表示名・役割を入れて「コードを発行」。8 文字のコードと、相手の Mac で打つコマンド、Claude Code に貼るプロンプトが出ます。コードは 10 分で切れ、1 回だけ使えます'));
+  if (!vps) {
+    a.append(step('この Mac でリモートログインをオンにする', 'システム設定 > 一般 > 共有 > 「リモートログイン」。相手の Mac から SSH で入れるようにします'));
+    if (sm.hostname) a.append(step('この Mac の名前と IP を控える', `${sm.user || ''}@${sm.hostname}${(sm.addresses || []).length ? '、IP ' + sm.addresses.join(' / ') : ''}。相手の Mac はこの名前か IP に SSH で届く必要があります（プロンプトには埋めてあります）`));
+  }
+  const li = el('li'); li.append(el('b', null, '相手の Mac で Claude Code を開き、プロンプトを貼る'),
+    el('div', 'hint', `コードを発行したときに出たプロンプト（ID とコード入り）をそのまま貼ります。Claude がリポジトリの取得、${vps ? '' : 'SSH トンネル、'}ペアリング（scripts/pair.ts）、ワーカーの起動まで行い、各段階を報告します。Claude Code を使わないときは、プロンプト内のコマンドを上から順に自分で実行します`));
+  const det = el('details'); det.append(el('summary', null, 'プロンプトの雛形（接続先は埋めてあります。ID とコードは発行時に入ります）'));
+  det.append(el('pre', null, sm.prompt_template || '（ハブから雛形を取得できませんでした。「再読み込み」してください）'));
+  const bb = el('div', 'btns'); bb.append(copyBtn(() => sm.prompt_template || '')); det.append(bb);
+  li.append(det); a.append(li);
+  a.append(step('この画面で確認して案件を足す', '右の「スレッド」に相手の Mac が表示名で、緑の点つきで出れば接続済み。「再読み込み」するとこの設定画面にその Mac の欄が出るので、そこから案件フォルダ（相手の Mac の中の場所）を登録します。以後は秘書が「役割」と「振り分けの判断基準」を見て使い分けます'));
+  c.append(a);
+  c.append(el('div', 'hint', `困ったとき: 「コードが違うか、期限が切れています」はコードの期限切れか使用済みなので発行し直します。相手の Mac が未接続のままなら、そちらの ~/.hannigan/logs/worker.log に connected to hub が出ているか${vps ? '' : '、tmux セッション hn-tunnel の ssh が生きているか'}を相手の Claude に確かめさせます。この Mac の hub.log に worker auth rejected が出たら鍵違いなので、secrets/worker-keys.json からその ID の行を消してからコードを発行し直します。ハブを再起動すると発行中のコードは全部失効します`));
+  root.append(c);
 }
 
 // ------------------------------------------------------------ connection and input

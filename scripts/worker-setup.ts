@@ -16,7 +16,7 @@ import { ensureDir, writeJsonAtomic } from '../shared/util.ts'
 
 export class WorkerSetupError extends Error {}
 
-export type WorkerSetupOptions = { worker: string; key: string; hubPort?: number; localPort?: number; force?: boolean }
+export type WorkerSetupOptions = { worker: string; key: string; hubPort?: number; localPort?: number; force?: boolean; hubUrl?: string } // hubUrl: full ws(s) url (pairing); overrides hubPort
 export type WorkerSetupResult = {
   workerFile: string
   keyFile: string
@@ -35,11 +35,12 @@ const port = (name: string, v: number | undefined, dflt: number): number => {
 export function setupWorker(home: string, o: WorkerSetupOptions): WorkerSetupResult {
   if (!ID_RE.test(o.worker)) throw new WorkerSetupError(`worker id "${o.worker}": letters, digits, - and _ only (1-32 chars)`)
   const key = o.key.trim()
-  if (!key || /\s/.test(key)) throw new WorkerSetupError('--key must be the key printed by scripts/add-worker.ts (no spaces)')
+  if (!key || /\s/.test(key)) throw new WorkerSetupError('--key must be the key issued by the hub (no spaces)')
   const hubPort = port('--hub-port', o.hubPort, 8800)
   const localPort = port('--local-port', o.localPort, 8801)
   ensureDir(home)
-  const hubUrl = `ws://127.0.0.1:${hubPort}/ws/worker`
+  if (o.hubUrl !== undefined && !/^wss?:\/\/[^\s]+\/ws\/worker$/.test(o.hubUrl)) throw new WorkerSetupError(`hub url "${o.hubUrl}" must be ws(s)://host[:port]/ws/worker`)
+  const hubUrl = o.hubUrl ?? `ws://127.0.0.1:${hubPort}/ws/worker`
   const workerFile = join(home, 'worker.json')
   let wroteConfig = false
   if (!existsSync(workerFile) || o.force) {

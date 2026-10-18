@@ -7,7 +7,7 @@ import type { Server as BunServer, ServerWebSocket } from 'bun'
 import { readFileSync } from 'fs'
 import { hostname, networkInterfaces, userInfo } from 'os'
 import { join, sep } from 'path'
-import { canonical, ConfigError, ID_RE, loadHubConfig } from '../shared/config.ts'
+import { canonical, ConfigError, HubConfigSchema, ID_RE, loadHubConfig } from '../shared/config.ts'
 import {
   CommandError,
   PROTO,
@@ -30,7 +30,7 @@ import {
   type WorkerHello,
   type WorkerResult,
 } from '../shared/protocol.ts'
-import { ensureSecret, readWorkerKeys, safeEqual, secretPath } from '../shared/secrets.ts'
+import { ensureSecret, newToken, readWorkerKeys, safeEqual, secretPath, writeSecret } from '../shared/secrets.ts'
 import { SessionManager, type BridgeSocket } from '../shared/session-manager.ts'
 import { EventLog, ensureDir, log, readJson, rid, writeJsonAtomic, type SeqEvent } from '../shared/util.ts'
 import { CONTEXT_ID_RE, ContextStore, LIVE_STATES, evictionCandidate, idleContexts } from './contexts.ts'
@@ -39,6 +39,7 @@ import { OfflineQueue } from './offline-queue.ts'
 import { RequestStore, type RequestState } from './requests.ts'
 import { SECRETARY_TOOLS, secretaryInstructions } from './secretary.ts'
 import { planHubSettings, SettingsError } from './settings.ts'
+import { PairingError, PairingStore, workerUrlFor } from './pairing.ts'
 import { lanAddresses, secondMacPromptTemplate } from '../shared/second-mac-prompt.ts'
 import { buildThreads, coverageOf, nextCoverage, threadHistory, type Coverage } from './threads.ts'
 
@@ -59,6 +60,8 @@ ensureDir(cfg.secretaryDir)
 cfg.secretaryDir = canonical(cfg.secretaryDir)
 const contextsRoot = canonical(ensureDir(cfg.contextsDir))
 const webToken = ensureSecret(home, 'webchat-token')
+// pairing codes for new workers (04 WP1). Cleared at start: a hub restart ends every pairing in progress.
+const pairing = new PairingStore(join(stateDir, 'pairing.json'))
 const bridgeToken = ensureSecret(home, 'local-bridge-token.hub')
 // duplicate keys of WebChat posts: /api/send by msg_id, /api/thread/send by (worker, session, msg_id)
 const msgKey = (msg_id: unknown) => `um\0${String(msg_id)}`
@@ -1289,6 +1292,8 @@ async function settingsView() {
     // the "2 台目の Mac" guide: this Mac's name and login for the ssh tunnel, and the prompt for Claude Code on the
     // other Mac with the worker id and key left as placeholders (the real key only ever leaves add-worker.ts). Not recorded.
     second_mac: secondMac(),
+    // pairings in progress (worker id and expiry only; the code was shown once when issued)
+    pairing: pairing.list(),
   }
 }
 function secondMac() {
@@ -1296,7 +1301,68 @@ function secondMac() {
   const hubHost = hn.includes('.') ? hn : `${hn}.local`
   const hubUser = userInfo().username
   const hubAddresses = lanAddresses(networkInterfaces() as Parameters<typeof lanAddresses>[0])
-  return { hostname: hubHost, user: hubUser, port: cfg.listen.port, addresses: hubAddresses, prompt_template: secondMacPromptTemplate({ hubPort: cfg.listen.port, hubHost, hubUser, hubAddresses }) }
+  return { hostname: hubHost, user: hubUser, port: cfg.listen.port, addresses: hubAddresses, public_url: cfg.public_url, pair_url: pairBase(), prompt_template: secondMacPromptTemplate({ hubPort: cfg.listen.port, hubHost, hubUser, hubAddresses, publicUrl: cfg.public_url, pairUrl: pairBase() }) }
+}
+
+// ---------------------------------------------------------------- pairing (04 WP1, 01 §6)
+// The URL the new Mac posts the code to: the public https URL when the hub is on the VPS, else this Mac's
+// loopback address (reached through an SSH tunnel from another Mac).
+const pairBase = () => cfg.public_url ?? `http://${cfg.listen.host}:${cfg.listen.port}`
+
+function startPairing(b: { worker?: unknown; display_name?: unknown; role?: unknown } | null): Response {
+  const worker = typeof b?.worker === 'string' ? b.worker.trim() : ''
+  if (!ID_RE.test(worker)) return json({ ok: false, error: 'bad_args', message: 'ワーカー ID は英数字と - _ で 1〜32 文字にしてください' }, 400)
+  if (cfg.workers.some(w => w.id === worker) || readWorkerKeys(home)[worker])
+    return json({ ok: false, error: 'exists', message: `ワーカー「${worker}」は登録済みです。鍵を作り直すときは secrets/worker-keys.json からその行を消してから発行してください` }, 409)
+  const display_name = typeof b?.display_name === 'string' ? b.display_name : null
+  const role = typeof b?.role === 'string' ? b.role : ''
+  if (role.length > 2000) return json({ ok: false, error: 'bad_args', message: '役割は 2000 文字以内にしてください' }, 400)
+  if (display_name && display_name.length > 80) return json({ ok: false, error: 'bad_args', message: '表示名は 80 文字以内にしてください' }, 400)
+  try {
+    const e = pairing.start({ worker, display_name, role })
+    events.record('pairing_started', { worker, expires_at: e.expires_at })
+    const base = pairBase()
+    return json({ ok: true, worker, code: e.code, expires_at: e.expires_at, pair_url: base, command: `bun scripts/pair.ts ${base} ${e.code} --worker ${worker}` })
+  } catch (e) {
+    if (e instanceof PairingError) return json({ ok: false, error: 'bad_args', message: e.message }, 400)
+    throw e
+  }
+}
+
+function cancelPairing(b: { worker?: unknown } | null): Response {
+  const worker = typeof b?.worker === 'string' ? b.worker : ''
+  const removed = pairing.cancel(worker)
+  if (removed) events.record('pairing_cancelled', { worker })
+  return json({ ok: true, removed })
+}
+
+// POST /pair: no WebChat token; the code is the credential. On success the key is issued and the worker is
+// registered in hub.json and in the running config, so the Mac can connect right away.
+function completePairing(b: { code?: unknown; worker?: unknown } | null): Response {
+  const v = pairing.verify(b?.code, b?.worker)
+  if (!v.ok) {
+    events.record('pairing_failed', { reason: v.reason, ...(typeof b?.worker === 'string' && ID_RE.test(b.worker) ? { worker: b.worker } : {}) })
+    return json({ ok: false, error: v.reason, message: v.message }, v.reason === 'bad_args' ? 400 : v.reason === 'locked' ? 429 : 403)
+  }
+  const e = v.entry
+  const keys = readWorkerKeys(home)
+  const key = newToken()
+  keys[e.worker] = key
+  writeSecret(home, 'worker-keys.json', JSON.stringify(keys))
+  const file = join(home, 'hub.json')
+  const raw = readJson<Record<string, unknown> | null>(file, null)
+  if (raw && typeof raw === 'object') {
+    const list = Array.isArray(raw.workers) ? (raw.workers as Record<string, unknown>[]) : (raw.workers = [])
+    if (!(list as Record<string, unknown>[]).some(x => x && x.id === e.worker)) (list as Record<string, unknown>[]).push({ id: e.worker, display_name: e.display_name, role: e.role })
+    const ok = HubConfigSchema.safeParse(raw)
+    if (ok.success) writeJsonAtomic(file, raw)
+    else log(C, 'hub.json not updated after pairing (invalid after adding the worker); the key was issued', { worker: e.worker })
+  } else log(C, 'hub.json unreadable after pairing; the key was issued', { worker: e.worker })
+  if (!cfg.workers.some(w => w.id === e.worker)) cfg.workers.push({ id: e.worker, display_name: e.display_name, role: e.role })
+  workerConn(e.worker)
+  events.record('worker_paired', { worker: e.worker })
+  events.record('settings_changed', { scope: 'hub', fields: [`workers.${e.worker}`] })
+  return json({ ok: true, worker: e.worker, key, hub_url: workerUrlFor(pairBase()) })
 }
 
 function saveHubSettings(input: unknown): Response {
@@ -1537,6 +1603,8 @@ const server: BunServer<WsData> = Bun.serve<WsData>({
       return new Response(html, { headers: { 'content-type': 'text/html; charset=utf-8', 'cache-control': 'no-store' } })
     }
     if (url.pathname === '/health') return json({ ok: true })
+    // the one route without the WebChat token: a pairing code is the credential (04 WP1)
+    if (req.method === 'POST' && url.pathname === '/pair') return completePairing(await body(req))
     if (!url.pathname.startsWith('/api/')) return new Response('not found', { status: 404 })
     if (!authed(req, url)) {
       events.record('auth_rejected', { path: url.pathname })
@@ -1569,6 +1637,8 @@ const server: BunServer<WsData> = Bun.serve<WsData>({
     if (req.method === 'GET' && url.pathname === '/api/settings') return json(await settingsView())
     if (req.method === 'POST' && url.pathname === '/api/settings/hub') return saveHubSettings(await body(req))
     if (req.method === 'POST' && url.pathname === '/api/settings/worker') return saveWorkerSettings(await body(req))
+    if (req.method === 'POST' && url.pathname === '/api/pairing/start') return startPairing(await body(req))
+    if (req.method === 'POST' && url.pathname === '/api/pairing/cancel') return cancelPairing(await body(req))
     if (req.method === 'GET' && url.pathname === '/api/threads') return threadsRoute()
     if (req.method === 'GET' && url.pathname === '/api/thread/history') return threadHistoryRoute(url)
     if (req.method === 'POST' && url.pathname === '/api/thread/send') return threadSend(await body(req))

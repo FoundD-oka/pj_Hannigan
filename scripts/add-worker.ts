@@ -3,7 +3,8 @@
 // Adds a new key to secrets/worker-keys.json and an entry to hub.json `workers[]`, then prints the
 // command to run on the other Mac. The key is printed once and goes to no log or other file.
 // hub.json `workers[]` is read at hub start only, so the hub has to be restarted afterwards.
-// Pairing codes (Phase 4) replace this script.
+// Since Phase 4 (04 WP1) the normal way is the pairing code from WebChat 設定 → ワーカーを追加 + scripts/pair.ts on
+// the other Mac; this script stays for a hub that cannot be reached over the network while pairing.
 //
 // usage: bun scripts/add-worker.ts --worker <id> [--name <display name>] [--role <text>] [--force]
 import { existsSync } from 'fs'
@@ -108,7 +109,7 @@ function main(): void {
   out()
   const hn = hostname()
   out('----- 8< ----- paste into Claude Code on the other Mac -----')
-  out(secondMacPrompt({ worker, key: r.key, hubPort: r.hubPort, hubHost: hn.includes('.') ? hn : `${hn}.local`, hubUser: userInfo().username, hubAddresses: lanAddresses(networkInterfaces() as Parameters<typeof lanAddresses>[0]) }))
+  out(secondMacPrompt({ worker, credential: { kind: 'key', key: r.key }, hubPort: r.hubPort, hubHost: hn.includes('.') ? hn : `${hn}.local`, hubUser: userInfo().username, hubAddresses: lanAddresses(networkInterfaces() as Parameters<typeof lanAddresses>[0]), pairUrl: `http://127.0.0.1:${r.hubPort}` }))
   out('----- 8< -----')
 }
 

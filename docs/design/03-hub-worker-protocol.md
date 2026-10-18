@@ -30,6 +30,8 @@
 3. ハブは `worker-keys.json` の鍵と定数時間で比べる。一致しなければ `bye { reason: "auth" }` を送って切る
 4. 一致すれば `welcome` を返す。同じ `worker_id` の古い接続があれば、古い方に `bye { reason: "replaced" }` を送って切る
 
+鍵の入手はペアリング（01 §6。2026-10-18 実装）: 作業 Mac が HTTP の `POST /pair` に `{ code, worker }` を送り、`{ ok, key, hub_url }` を受け取って `worker-key` と `worker.json` に書く。`/pair` は WebSocket ではなく通常の HTTP で、WebChat トークンを要らない代わりにコードを資格情報とする。鍵は応答本文にだけ載り、ハブの出来事・ログには出ない。
+
 ```json
 // ワーカー → ハブ
 { "t": "hello", "proto": 2, "worker_id": "home", "key": "…", "version": "0.1.0",

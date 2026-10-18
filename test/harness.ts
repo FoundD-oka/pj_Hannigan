@@ -136,6 +136,17 @@ export class Harness {
   startWorker(): void {
     this.worker = this.spawn('worker/daemon.ts', `worker-${Date.now()}`)
   }
+  // a second worker daemon with its own HANNIGAN_HOME (e.g. one that paired itself); killed by cleanup()
+  extraWorkers: Subprocess[] = []
+  startWorkerFrom(home: string): Subprocess {
+    const p = Bun.spawn(['bun', join(REPO, 'worker/daemon.ts')], {
+      env: { ...process.env, HANNIGAN_HOME: home },
+      stdout: Bun.file(join(this.dir, `worker2-${Date.now()}.out.log`)),
+      stderr: Bun.file(join(this.dir, `worker2-${Date.now()}.log`)),
+    })
+    this.extraWorkers.push(p)
+    return p
+  }
   async stopHub(): Promise<void> {
     this.hub?.kill()
     await this.hub?.exited
@@ -208,6 +219,11 @@ export class Harness {
     return spawnSync('tmux', ['capture-pane', '-p', '-t', `=${name}:`], { encoding: 'utf8' }).stdout ?? ''
   }
   async cleanup(): Promise<void> {
+    for (const p of this.extraWorkers) {
+      p.kill()
+      await p.exited
+    }
+    this.extraWorkers = []
     await this.stopWorker()
     await this.stopHub()
     for (const s of this.tmuxSessions()) spawnSync('tmux', ['kill-session', '-t', `=${s}`])
