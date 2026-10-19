@@ -124,8 +124,8 @@ Phase 2 の部品（ワーカー常駐プログラム、ブリッジ、tmux 操�
 
 出口条件
 - [ ] 2 台以上のワーカーを別ネットワークから同時につなぎ、WebChat から使い分けて結果が戻る（2026-10-19: 自宅 Mac 1 台がインターネット経由の wss で一巡。2 台目は未。[報告](verification/phase4-vps/README.md)）
-- [ ] ワーカーの Mac を再起動しても、常駐プログラムが自動でハブへ戻る（2026-10-19: launchd の LaunchAgent を導入。daemon を殺しても 10 秒以内に戻る。Mac 自体の再起動は利用者の操作待ち。[報告 4.1](verification/phase4-vps/README.md)）
-- [x] VPS を再起動しても、秘書セッションと保留キューが復元され、期限内の依頼が配送される（2026-10-19: VPS を `reboot` し、hub の自動起動、秘書の `--resume` 再開と再起動前の記憶、保留 1 件の残存を確認。保留の配送はワーカー復帰時に確認する。[報告 4.2](verification/phase4-vps/README.md)）
+- [x] ワーカーの Mac を再起動しても、常駐プログラムが自動でハブへ戻る（2026-10-19: launchd の LaunchAgent を導入。daemon を殺しても 10 秒以内に戻り、Mac の再起動ではログインから約 1 分で VPS のハブに戻った。[報告 4.1](verification/phase4-vps/README.md)）
+- [x] VPS を再起動しても、秘書セッションと保留キューが復元され、期限内の依頼が配送される（2026-10-19: VPS を `reboot` し、hub の自動起動、秘書の `--resume` 再開と再起動前の記憶、保留 1 件の残存を確認。保留の 1 件は Mac のワーカー復帰時に配送され PM の報告が会話に戻った。[報告 4.2](verification/phase4-vps/README.md)）
 - [ ] CU のアプリ承認を遠隔から完了できる（補助経路）
 
 ## Phase 5: 設定画面と導入 CLI
