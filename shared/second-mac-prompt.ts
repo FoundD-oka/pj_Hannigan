@@ -48,7 +48,7 @@ function credentialStep(i: SecondMacPromptInput): string {
 }
 
 const START_STEP =
-  'ワーカーの起動: `scripts/start.sh worker`。`~/.hannigan/logs/worker.log` に `connected to hub` が出れば成功。`worker auth rejected` が出たら鍵違いなので、ハブ側で鍵を作り直す必要があると私に伝える。`hub connection failed` が続くなら接続先 URL と到達性を確かめる'
+  'ワーカーの起動: `scripts/install-launchd.sh` を実行する（ログイン時に自動で起動し、落ちても戻る。自動起動にしないなら代わりに `scripts/start.sh worker`）。ペアリングしただけではつながらないので、この手順は必ず行う。`~/.hannigan/logs/worker.log` に `connected to hub` が出れば成功。`worker auth rejected` が出たら鍵違いなので、ハブ側で鍵を作り直す必要があると私に伝える。`hub connection failed` が続くなら接続先 URL と到達性を確かめる'
 const REPORT_STEP = '報告: 各段階の結果、変更したファイル、残っている問題をまとめる。案件の登録はハブ側の WebChat の設定画面で行うので、ここではしない'
 const DONT = [
   'やらないこと',

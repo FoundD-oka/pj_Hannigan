@@ -103,7 +103,10 @@ async function main(): Promise<void> {
   out(`${r.wroteConfig ? 'wrote' : 'kept'} ${r.workerFile}${r.wroteConfig ? ` (hub_url ${r.hubUrl}, no projects)` : ' (pass --force to rewrite)'}`)
   out(`${r.wroteKey ? 'wrote' : 'kept'} ${r.keyFile}${r.wroteKey ? '' : ' (pass --force to replace)'}`)
   out()
-  out('next: scripts/start.sh worker   (projects are added from WebChat 設定 on the hub side, under this worker)')
+  out('next: start the worker (pairing alone does not connect this Mac):')
+  out('     scripts/install-launchd.sh      (auto-start at login, restarts on exit; recommended)')
+  out('     scripts/start.sh worker         (manual start in tmux)')
+  out('  projects are added from WebChat 設定 on the hub side, under this worker')
   if (r.hubUrl.startsWith('ws://')) out('the hub url is plain ws://, so it must be this Mac or an SSH tunnel to the hub Mac; keep the tunnel open while the worker runs')
 }
 

@@ -742,7 +742,14 @@ function renderPairing(r) {
       const prompt = (sm.prompt_template || '').replace('<ワーカー ID>', worker).replace('<コード>', res.code);
       const det = el('details'); det.append(el('summary', null, 'その Mac の Claude Code に貼るプロンプト（ID とコード入り）'));
       det.append(el('pre', null, prompt)); const pb = el('div', 'btns'); pb.append(copyBtn(() => prompt)); det.append(pb);
-      result.append(code, el('div', 'hint', 'つなぐ Mac で、リポジトリのフォルダから:'), cmd, bb, det);
+      const startCmd = 'scripts/install-launchd.sh';
+      const startPre = el('pre', null, startCmd); const sb = el('div', 'btns'); sb.append(copyBtn(() => startCmd));
+      result.append(code,
+        el('div', 'hint', 'つなぐ Mac で、リポジトリのフォルダ（git clone と bun install 済み）から順に 2 つ実行します。1 つ目でこの Mac と鍵を交換し、2 つ目でワーカーを起動します（ペアリングだけではつながりません）'),
+        el('div', 'label', '1. ペアリング'), cmd, bb,
+        el('div', 'label', '2. ワーカーの起動（ログイン時に自動で起動し、落ちても戻る）'), startPre, sb,
+        el('div', 'hint', '自動起動にしないときは代わりに scripts/start.sh worker。起動すると右の「スレッド」に緑の点で出ます。出なければそちらの ~/.hannigan/logs/worker.log を見ます'),
+        det);
       id.value = ''; dn.value = ''; role.value = ''; refreshState();
     });
   };

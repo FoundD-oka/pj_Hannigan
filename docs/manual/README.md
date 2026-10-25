@@ -231,7 +231,7 @@ scripts/stop.sh --sessions   # 秘書・PM・子も /exit で終える
 1. リポジトリを `~/pj-Hannigan` に取得して `bun install`
 2. （ハブがこの Mac のときだけ）`ping` と `nc` でハブ Mac に届くか確かめ、SSH の疎通を見て、tmux セッション `hn-tunnel` で SSH トンネルを張る。届かなければ「別ネットワークにいる」と報告して止まる
 3. `bun scripts/pair.ts <ハブの URL> <コード> --worker <ID>` でペアリングする。ハブが鍵を発行し、`~/.hannigan/worker.json`（案件は空）と `~/.hannigan/secrets/worker-key` を書く。`hub.json` は作らない
-4. `scripts/start.sh worker` で起動し、`~/.hannigan/logs/worker.log` の `connected to hub` を確かめる
+4. `scripts/install-launchd.sh` でワーカーを起動する（ログイン時に自動起動。手動なら `scripts/start.sh worker`）。ペアリングしただけではつながらない。`~/.hannigan/logs/worker.log` の `connected to hub` を確かめる
 5. 結果と変更したファイル、残った問題を報告する
 
 Claude Code を使わないときは、プロンプトの中のコマンドを上から順に自分で実行すれば同じになる。プロンプトの本文は [shared/second-mac-prompt.ts](../../shared/second-mac-prompt.ts) にある。
