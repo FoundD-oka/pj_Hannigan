@@ -1,6 +1,6 @@
 # 引き継ぎ書: OpenMausBot をベースにした作り直しへ
 
-作成日: 2026-10-26。書いた人: Hannigan を Phase 0〜4 まで作った Claude Code のセッション。
+作成日: 2026-10-26。2026-10-27 に、現状（会社の Mac、Phase 4 の達成数）、CU 承認の補助経路、Bun への依存の記述を実物で確かめて直した。書いた人: Hannigan を Phase 0〜4 まで作った Claude Code のセッション。
 読む人: 新しいスレッド（新しい Claude Code のセッション）と利用者。このファイル 1 枚と、ここから参照する文書だけで設計のやり直しを始められるようにする。
 
 ## 1. なぜ作り直すか
@@ -21,7 +21,7 @@
 | ハブ + 秘書 Claude Code | XServer VPS 162.43.38.222（Ubuntu 24.04）。ユーザー `hannigan`、`/home/hannigan/pj-Hannigan`、`HANNIGAN_HOME=/home/hannigan/.hannigan`、systemd `hannigan-hub.service` | 稼働中。公開 URL `https://hannigan.found-d.com`（WebChat）、`wss://hannigan.found-d.com/ws/worker`（ワーカー） |
 | TLS | 同じ VPS で別プロジェクト ccr-ingress（Control_VPS_byClaw）が動かす Caddy に `import /etc/caddy/hannigan.caddy` を足して共有 | 証明書は自動取得。**ccr-ingress の元リポジトリにも同じ 1 行を入れる作業が利用者側に残っている** |
 | 自宅 Mac のワーカー | この Mac（M4 Mac mini）。ID `m4-mini`。launchd `com.hannigan.worker` で自動起動 | 接続中。案件 `notes`（`~/hannigan-manual-demo/notes`）を登録済み |
-| 会社の Mac のワーカー | ID `office`（表示名カボス）。ペアリング済み | 2026-10-25 時点でワーカー未起動。`scripts/install-launchd.sh` を実行すればつながる見込み |
+| 会社の Mac のワーカー | ID `office`（表示名カボス）。ペアリング済み | 接続中。ハブのログでは 2026-10-25 14:02 JST に接続し、2026-10-27 時点で切断の記録なし。launchd で常駐させたかは会社の Mac 側で未確認 |
 | リポジトリ | `https://github.com/FoundD-oka/pj_Hannigan`（main）。VPS のチェックアウトも同じコミット | 最新は `c6d5950` |
 
 入り方: この Mac から `ssh -i ~/.ssh/hannigan-vps root@162.43.38.222`。WebChat のトークンは VPS の `/home/hannigan/.hannigan/secrets/webchat-token`。ハブのコードを変えたら VPS で `git pull` と `systemctl restart hannigan-hub`（tmux の秘書は残る）。
@@ -29,7 +29,7 @@
 ### 2.2 どこまで確認できているか
 
 - Phase 0〜3 は完了。Phase 3 の出口条件は 7 つ中 6 つを偽 Claude の自動試験で、主要経路を本物の Claude で確認（[phase3-e2e](verification/phase3-e2e/README.md)）
-- Phase 4 は出口条件 4 つ中 3 つを実機で確認（別ネットワークからの接続は自宅 Mac 1 台のみ、VPS 再起動と Mac 再起動からの復元、launchd）。残りは CU 承認の補助経路（[phase4-vps](verification/phase4-vps/README.md)）
+- Phase 4 は出口条件 4 つ中 2 つを実機で確認した（Mac 再起動からの自動復帰と launchd、VPS 再起動からの復元）。「2 台以上を別ネットワークから同時につなぎ、WebChat から使い分けて結果が戻る」は、wss での一巡を自宅 Mac 1 台で確かめただけ。会社の Mac も 2026-10-25 からつながっているので、2 台の使い分けを 1 回通せば判定できる。もう 1 つの残りは CU 承認の補助経路（[phase4-vps](verification/phase4-vps/README.md)、4.3）
 - 自動試験: 単体 118 件、偽 Claude の通し 64 件（`bun test test/unit`、`bun test test/e2e-fake`）
 
 ### 2.3 文書
@@ -110,13 +110,19 @@ Hannigan で学んだ、新設計でも効く知見
 | 複数ホスト | 複数ホストのデスクトップをまとめて管理する機能は Issue #508（2026-08-26 起票）で未解決 | GitHub Issue |
 | 安定性 | 2026-10-24 に「子エージェントの完了を検知できない」（#3450）と「直近 30 分の会話が履歴から消える」（#3449）が起票され、未解決 | GitHub Issue |
 
-### 4.3 統合に効く Hannigan 側の事実（2026-10-26 にコードと実測記録で確認）
+### 4.3 統合に効く Hannigan 側の事実（2026-10-26〜27 にコードと実測記録で確認）
 
 - 案件 PM への依頼は、秘書専用ツールの中の `projectPmSend()`（`hub/hub.ts` 967 行）が行う。外から呼べる依頼 API にはなっていない。`POST /api/send`（同 1659 行）は Hannigan の秘書に話しかける API なので、OpenMausBot の統括秘書から呼ぶと秘書が 2 段になる
 - `projectPmSend()` は呼ぶたびに新しい `request_id` を作る。Hannigan の中の重複排除は、システムをまたいだ再試行までは防がない
 - 依頼の状態 `RequestState`（`hub/requests.ts` 7 行）は配送の状態だけを持ち、作業の完了を表す値は無い。`delivered` はチャネルに書き込めたという意味
 - 実測（[claude-channels](verification/claude-channels/README.md)）では、CU のアプリ承認は Channels に届かず端末にだけ出た（T05）。実行中の停止は Channels のメッセージでは効かず、tmux へ Esc を送ると止まり、同じ会話を続けられた（T09）
-- `shared/session-manager.ts`、`shared/tmux.ts`、`shared/pane.ts`、`shared/bridge.ts`、`worker/daemon.ts`、`worker/pm.ts`、`worker/lease.ts`、`hub/offline-queue.ts` のうち、Bun 固有の API を呼ぶのは `worker/daemon.ts` の 1 か所だけ
+- CU のアプリ承認の補助経路は作り済み。ワーカーは tmux の画面から承認ダイアログを `cu_app_approval` として見分け（`shared/pane.ts` 28 行）、自動では答えずに WebChat の承認カードへ出す。カードでの回答は、選択キーとして端末へ送る（`shared/session-manager.ts` の `selectOption`）。画面判定には単体試験がある（`test/unit/pane.test.ts`）。本物の CU で WebChat から承認して作業が続くかは未確認（ROADMAP の Phase 4 出口条件 4）
+- Bun 固有の書き方は 4 種類ある
+  - サーバー 2 つ。ハブの HTTP と WebSocket の入口（`hub/hub.ts` 1586 行の `Bun.serve`）と、ワーカーがチャネルからの接続を受けるサーバー（`worker/daemon.ts` 289 行の `Bun.serve`）
+  - Bun の WebSocket 型（`hub/hub.ts` と `shared/session-manager.ts` の `ServerWebSocket`）
+  - `import.meta.dir` と `import.meta.main`（`hub/hub.ts`、`shared/session-manager.ts`、`worker/lease.ts`、`worker/lease-guard.ts`）
+  - Claude Code に起動させるチャネル（`shared/bridge.ts`）と書込リースのフック（`worker/lease-guard.ts`）を、`hub.json` と `worker.json` の `bun_bin` で動かす（VPS の秘書もチャネルを使う）
+- `shared/bridge.ts`、`shared/tmux.ts`、`shared/pane.ts`、`worker/pm.ts`、`hub/offline-queue.ts` のコードは Bun 固有の書き方を使わない。試験は `bun test` が前提（`bun:test` を読む試験が 25 ファイル）
 - Hannigan のライセンスは MIT（`LICENSE`）
 
 未確認（新スレッドで実物を読んで決める）
@@ -133,6 +139,7 @@ Hannigan で学んだ、新設計でも効く知見
 - 利用者の目標: 将来は 1 つの OSS として、VPS 用と Mac 用の配布物で簡単に導入できるようにする。製品名は Hannigan（OpenMausBot の名前は商標なので使えない、4.2）
 - 統合の形は A が有力。OpenMausBot の OSS 版（`enterprise/` を除く）をフォークし、Mac で Claude を動かす部分だけ Hannigan 方式のドライバーを足す
 - Claude の動かし方は場所で分ける。Mac で純正 CU を使う案件 PM と作業セッションは、今の Hannigan と同じ tmux 内の対話モード + Channels で動かす（純正 CU と開発用チャネルが `-p` で使えないため、4.2）。VPS の統括秘書は CU を使わないので、OpenMausBot 標準の `-p` ドライバーのままでよい
+- 第 1 段階の前に、今の Hannigan で本物の CU のアプリ承認を WebChat から通す（Phase 4 の残り）。画面判定と承認カードは作り済み（4.3）なので、OpenMausBot を触らずに 1 回の実機確認で済む。ここで通らなければ OpenMausBot 経由でも通らないので、補助経路を直してから第 1 段階へ進む
 - 進める順番
   1. Mac 1 台で、純正 CU が OpenMausBot の画面から一巡するか確かめる。合格は「画面から依頼 → 対話型の Claude が純正 CU で作業 → 承認・拒否・停止を画面から操作 → 結果が画面に戻る → 同じセッションへ追加指示」がすべて通ること。初回の OS 権限の付与を除き、端末へ戻らずに済むこと。cua-driver で代わりに動いた場合は合格にしない
   2. 通ったら、VPS への配置と複数 Mac の仕組み（通信、ペアリング、保留配送、書込リース）を Hannigan から移し、2 台で承認・停止・再接続を確かめ直す
@@ -154,11 +161,11 @@ Hannigan で学んだ、新設計でも効く知見
 ### 5.3 設計で先に詰める論点（2026-10-26 のレビューで出たもの）
 
 - ターンの終わりの判定。OpenMausBot 標準のドライバーは CLI の `result` でターンを閉じるが、対話モードの Claude はこれを出さない。Hannigan の `reply` ツールの呼び出しと画面の状態から終わりを決め、OpenMausBot の出来事に変える。「受け付けた」「届けた」「作業中」「承認待ち」「完了」を混同しない（`delivered` は完了ではない、4.3）
-- 承認と停止の補助経路。CU のアプリ承認と実行中の停止は Channels に乗らない（4.3）。`respondToRequest` を端末へのキー送信に、`interruptTurn` を tmux への Esc につなぐ。これは Hannigan の Phase 4 で残っている「CU 承認の補助経路」と同じ課題なので、OpenMausBot を触る前に今の Hannigan で確かめられる。ここが Hannigan で通らなければ、OpenMausBot 経由でも通らない
+- 承認と停止の補助経路。CU のアプリ承認と実行中の停止は Channels に乗らない（4.3）。`respondToRequest` を端末へのキー送信に、`interruptTurn` を tmux への Esc につなぐ。Hannigan では CU 承認の画面判定と承認カードを作り済みで（4.3）、Esc での停止は T09 で確かめた。残る CU 承認の実機確認は、5.1 のとおり OpenMausBot を触る前に今の Hannigan で行う
 - CU のロック。Mac 1 台で CU を使えるのは 1 セッションだけで、ロックはセッションの終了まで外れない（4.2）。PM と子セッションが同じ Mac に並ぶので、CU を使うセッションを Mac ごとに 1 本に絞る決まりと、案件をまたいでロックを渡す手順が要る。書込リースとは別に扱う
 - 再試行の重複。`projectPmSend()` は呼ぶたびに新しい `request_id` を作る（4.3）。OpenMausBot 側の再試行で同じ依頼を二重に出さないよう、OpenMausBot の「ボット・会話・ターン」と Hannigan の「Mac・案件・セッション・`request_id`」の対応を永続化する。届いたか不明なときは、`steer` の `indeterminate` と Hannigan の `delivery_unknown` をそろえて扱い、無条件に再送しない
 - 秘書を二重にしない。`/api/send` は Hannigan の秘書に話しかける API（4.3）。案件 PM への依頼を、外から呼べる API として切り出す。PM からの報告も OpenMausBot の該当する会話へ返せるようにする
-- 実行環境。OpenMausBot は Node 24 + pnpm、Hannigan は Bun。Hannigan の主要ファイルで Bun 固有の API は 1 か所だけ（4.3）なので、Node へ寄せやすい。配布版では利用者に両方を管理させない
+- 実行環境。OpenMausBot は Node 24 + pnpm、Hannigan は Bun。Node へ寄せるときに書き換えるのは、サーバー 2 つ（ハブの入口とワーカーのチャネル用サーバー）、WebSocket の型、`import.meta.dir` などの書き方、チャネルとフックの起動コマンド、試験の実行方法（4.3）。案件 PM、書込リース、オフライン保留の判断の中身は書き換えずに済む。配布版では利用者に両方を管理させない
 - 配布の前提。純正 CU は Pro / Max プランだけで、CLI は macOS だけ（4.2）。正式な対応範囲は Linux の VPS + macOS の作業 Mac にし、導入前の案内に書く
 
 ## 6. 新しいスレッドの最初の依頼文（貼って使う）
@@ -166,7 +173,7 @@ Hannigan で学んだ、新設計でも効く知見
 ```text
 pj-Hannigan の docs/HANDOFF.md を読んでから始めて。目的は、OpenMausBot（https://github.com/milind-soni/OpenMausBot）をベースにして、Hannigan の「複数の Mac を 1 つのハブにつなぎ、案件ごとの PM が各 Mac で Claude Code を動かす」技術を組み合わせた新しい設計を作ること。
 
-まず OpenMausBot の本家リポジトリを clone して、HANDOFF の 4 章「未確認」の項目を実物のコードで確かめて報告して（コンパニオンの仕組み、ドライバー SPI に対話型の Claude を載せる方法、承認の仕組みに端末ダイアログを載せられるか）。4.2 の確認結果も、版が変わっていれば確かめ直して。その結果をもとに、5.1 の見立て（統合の形 A）が妥当かを B / C と比べて確かめ、5.3 の論点への答えを理由つきで出して。設計書は docs/design/ の既存の形式（00〜04、CHANGELOG）に合わせて新しい番号で書く。
+まず OpenMausBot の本家リポジトリを clone して、HANDOFF の 4 章「未確認」の項目を実物のコードで確かめて報告して（コンパニオンの仕組み、ドライバー SPI に対話型の Claude を載せる方法、承認の仕組みに端末ダイアログを載せられるか）。4.2 の確認結果も、版が変わっていれば確かめ直して。その結果をもとに、5.1 の見立て（統合の形 A）が妥当かを B / C と比べて確かめ、5.3 の論点への答えを理由つきで出して。あわせて、5.1 にある「第 1 段階の前に、今の Hannigan で CU のアプリ承認を WebChat から通す」確認の段取りを示して。実機の操作が要るので、実施は利用者と相談してから。設計書は docs/design/ の既存の形式（00〜04、CHANGELOG）に合わせて新しい番号で書く。
 
 守ること: 今動いている Hannigan（VPS のハブ、自宅 Mac と会社の Mac のワーカー）は止めない・設定を変えない。コードを書くのは設計が固まってから。変わりやすい外部事実（OpenMausBot の版、Claude Code の版とフラグ）は確認日を文書に残す。返答は日本語で。
 ```
