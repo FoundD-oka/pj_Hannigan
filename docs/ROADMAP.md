@@ -6,7 +6,9 @@
 
 ## 全体像
 
-2026-10-26: 利用者が OpenMausBot（OSS）を見つけ、UI はそちらが上と判断。OpenMausBot をベースに Hannigan の複数 Mac 接続を組み合わせる方向で、新しいスレッドで設計からやり直す。引き継ぎは [HANDOFF](HANDOFF.md)。今の Phase 4 構成（VPS）は止めずに運用を続ける。
+2026-10-26: 利用者が OpenMausBot（OSS）を見つけ、UI はそちらが上と判断。OpenMausBot をベースに Hannigan の複数 Mac 接続を組み合わせる方向で、新しいスレッドで設計からやり直す。引き継ぎは [HANDOFF](HANDOFF.md)。
+
+2026-10-27: 今の WebChat は使わないと決め、VPS の Hannigan（と同居の ccr）を消して OpenMausBot に置き換えた（HANDOFF 2.1）。7 日間の運用テストは打ち切り、下のフェーズは Hannigan 単体の記録として残す。
 
 ```text
 Phase 0  検証               ── 完了（Channels × CU、同一 Mac 内）

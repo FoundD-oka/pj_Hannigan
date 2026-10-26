@@ -1,6 +1,6 @@
 # 引き継ぎ書: OpenMausBot をベースにした作り直しへ
 
-作成日: 2026-10-26。2026-10-27 に、現状（会社の Mac、Phase 4 の達成数）、CU 承認の補助経路、Bun への依存の記述を実物で確かめて直した。同日、第 1 段階（OpenMausBot の画面から純正 CU）の結果を 5 章に反映した。書いた人: Hannigan を Phase 0〜4 まで作った Claude Code のセッション。
+作成日: 2026-10-26。2026-10-27 に、現状（会社の Mac、Phase 4 の達成数）、CU 承認の補助経路、Bun への依存の記述を実物で確かめて直した。同日、第 1 段階（OpenMausBot の画面から純正 CU）の結果を 5 章に反映し、VPS の Hannigan と同居の ccr を消して OpenMausBot に置き換えた（1・2・7 章）。書いた人: Hannigan を Phase 0〜4 まで作った Claude Code のセッション。
 読む人: 新しいスレッド（新しい Claude Code のセッション）と利用者。このファイル 1 枚と、ここから参照する文書だけで設計のやり直しを始められるようにする。
 
 ## 1. なぜ作り直すか
@@ -9,22 +9,24 @@
 
 決定済みのこと
 - 新しい設計は新しいスレッドで、設計から始める（コードを先に書かない）
-- 今の Hannigan は止めない。VPS 構成で動いていて、利用者の 7 日間の運用テストに使っている。作り直しの間も壊さない
+- 2026-10-27 に方針を変えた。今の Hannigan の WebChat は使わず、OpenMausBot をベースに新規に作る。VPS の Hannigan（と同居していた ccr）は消して OpenMausBot に置き換え、7 日間の運用テストは打ち切った（2.1）
 - 新しいものの置き場所（このリポジトリの中か、別リポジトリか、OpenMausBot のフォークか）は新しいスレッドで決める
 
-## 2. Hannigan の現状（2026-10-26）
+## 2. 現状（2026-10-27）
 
 ### 2.1 動いているもの
 
+2026-10-27 に VPS の中身を入れ替えた。Hannigan（ハブ、秘書、WebChat）と、同居していた別プロジェクト ccr は消し、OpenMausBot だけが動いている。
+
 | 部品 | 場所 | 状態 |
 | --- | --- | --- |
-| ハブ + 秘書 Claude Code | XServer VPS 162.43.38.222（Ubuntu 24.04）。ユーザー `hannigan`、`/home/hannigan/pj-Hannigan`、`HANNIGAN_HOME=/home/hannigan/.hannigan`、systemd `hannigan-hub.service` | 稼働中。公開 URL `https://hannigan.found-d.com`（WebChat）、`wss://hannigan.found-d.com/ws/worker`（ワーカー） |
-| TLS | 同じ VPS で別プロジェクト ccr-ingress（Control_VPS_byClaw）が動かす Caddy に `import /etc/caddy/hannigan.caddy` を足して共有 | 証明書は自動取得。**ccr-ingress の元リポジトリにも同じ 1 行を入れる作業が利用者側に残っている** |
-| 自宅 Mac のワーカー | この Mac（M4 Mac mini）。ID `m4-mini`。launchd `com.hannigan.worker` で自動起動 | 接続中。案件 `notes`（`~/hannigan-manual-demo/notes`）を登録済み |
-| 会社の Mac のワーカー | ID `office`（表示名カボス）。ペアリング済み | 接続中。ハブのログでは 2026-10-25 14:02 JST に接続し、2026-10-27 時点で切断の記録なし。launchd で常駐させたかは会社の Mac 側で未確認 |
-| リポジトリ | `https://github.com/FoundD-oka/pj_Hannigan`（main）。VPS のチェックアウトも同じコミット | 最新は `c6d5950` |
+| OpenMausBot サーバー | XServer VPS 162.43.38.222（Ubuntu 24.04、Node 24.21.0）。ユーザー `hannigan` に `openmausbot@0.1.127` を npm で `~/.local` へ導入。データは `~/.openmausbot`。systemd `openmausbot.service` が `openmausbot serve --public-url https://hannigan.found-d.com --no-pair` を動かす（`127.0.0.1:8799`、webhook は `127.0.0.1:8800`） | 稼働中。`https://hannigan.found-d.com`。ログインは端末のペアリング。エンジンは標準の Claude ドライバー（Claude Code 2.1.310、claude.ai の Max でログイン済み）。2026-10-27 に画面からの 1 往復を確認 |
+| TLS | VPS の Caddy 2.6.2（apt）。`/etc/caddy/Caddyfile` は OpenMausBot の 1 サイトだけ（`/hooks/*` → 8800、ほか → 8799、`flush_interval -1`。SSE がたまるので `encode` は付けない） | 証明書は前の Hannigan と同じものを引き継いだ |
+| 消したもの | Hannigan のハブ・秘書・コード・データ。ccr 一式（OpenClaw、Authelia、ccr-bots、ws-bridge、証明書更新、関連ユーザー 9 人、SSH の設定）。この Mac の Hannigan ワーカー（launchd から外した） | バックアップはこの Mac の `~/Backups/vps-162.43.38.222-20261027/`（2.26GB と追加分、SHA-256 付き）。秘密情報を含むのでリポジトリには入れない |
+| 会社の Mac のワーカー | ID `office`（表示名カボス） | 接続先のハブが消えた。会社の Mac で止める作業が残っている |
+| リポジトリ | `https://github.com/FoundD-oka/pj_Hannigan`（main） | VPS にはチェックアウトを置いていない |
 
-入り方: この Mac から `ssh -i ~/.ssh/hannigan-vps root@162.43.38.222`。WebChat のトークンは VPS の `/home/hannigan/.hannigan/secrets/webchat-token`。ハブのコードを変えたら VPS で `git pull` と `systemctl restart hannigan-hub`（tmux の秘書は残る）。
+入り方: この Mac から `ssh -i ~/.ssh/hannigan-vps root@162.43.38.222`。端末を足すときは `sudo -iu hannigan openmausbot pair --public-url https://hannigan.found-d.com`（コードは 1 回限り、5 分で失効）、一覧と取り消しは `openmausbot sessions`。版を上げるときは `systemctl stop openmausbot`、`sudo -iu hannigan npm install --global --prefix /home/hannigan/.local openmausbot@X.Y.Z`、`systemctl start openmausbot`。
 
 ### 2.2 どこまで確認できているか
 
@@ -142,7 +144,7 @@ Hannigan で学んだ、新設計でも効く知見
 - 第 1 段階の前に予定していた「今の Hannigan の WebChat で本物の CU のアプリ承認を通す確認」（Phase 4 の残り）は、先に第 1 段階を行ったので未実施。画面判定と選択キーの送信は、第 1 段階で OpenMausBot 経由で実機で動いた。残るのは、launchd で動くワーカーの tmux に CU の macOS 権限があるかの確認と合わせた実機確認（5.3 の最後の項目）
 - 進める順番
   1. Mac 1 台で、純正 CU が OpenMausBot の画面から一巡するか確かめる。合格は「画面から依頼 → 対話型の Claude が純正 CU で作業 → 承認・拒否・停止を画面から操作 → 結果が画面に戻る → 同じセッションへ追加指示」がすべて通ること。初回の OS 権限の付与を除き、端末へ戻らずに済むこと。cua-driver で代わりに動いた場合は合格にしない。**2026-10-27 に合格**（D の形の試作。OS 権限は Terminal.app の付与済みの権限を借りた）
-  2. 次はこれ。VPS への配置と複数 Mac の仕組み（通信、ペアリング、保留配送、書込リース）を Hannigan から移し、2 台で承認・停止・再接続を確かめ直す。その前に A と D のどちらで進めるかを決める（5.2）
+  2. 次はこれ。VPS への配置と複数 Mac の仕組み（通信、ペアリング、保留配送、書込リース）を Hannigan から移し、2 台で承認・停止・再接続を確かめ直す。その前に A と D のどちらで進めるかを決める（5.2）。OpenMausBot 本体の VPS 配置は 2026-10-27 に済んだ（2.1）
   3. 第 1 段階で見つかった要対応（5.3 の最後の項目）を、第 2 段階の設計に入れる
 - 利用者の構想として、自作の Web アプリにボタンを置き、押すとサイドパネルが開いて OpenMausBot の Web 画面が出る形がある。今は埋め込みが禁止されている（4.2）ので、フォーク側で許可する埋め込み元を限定して開ける。ログインとペアリングの画面は禁止のまま残す。D は OpenMausBot を改造しないので禁止が残り、サイドパネル化には A か、応答ヘッダーを書き換える前段が要る。サイドパネル化と Discord 連携は、第 1 段階が通るまで着手しない（第 1 段階は通った）
 
@@ -184,7 +186,7 @@ pj-Hannigan の docs/HANDOFF.md を読んでから始めて。目的は、OpenMa
 
 まず OpenMausBot の本家リポジトリを clone して、HANDOFF の 4 章「未確認」の項目を実物のコードで確かめて報告して（コンパニオンの仕組み、ドライバー SPI に対話型の Claude を載せる方法、承認の仕組みに端末ダイアログを載せられるか）。4.2 の確認結果も、版が変わっていれば確かめ直して。その結果をもとに、5.1 の見立て（統合の形 A か D）が妥当かをほかの候補と比べて確かめ、5.3 の論点への答えを理由つきで出して。あわせて、5.1 にある「第 1 段階の前に、今の Hannigan で CU のアプリ承認を WebChat から通す」確認の段取りを示して。実機の操作が要るので、実施は利用者と相談してから。設計書は docs/design/ の既存の形式（00〜04、CHANGELOG）に合わせて新しい番号で書く。
 
-守ること: 今動いている Hannigan（VPS のハブ、自宅 Mac と会社の Mac のワーカー）は止めない・設定を変えない。コードを書くのは設計が固まってから。変わりやすい外部事実（OpenMausBot の版、Claude Code の版とフラグ）は確認日を文書に残す。返答は日本語で。
+守ること: VPS で動いている OpenMausBot（HANDOFF 2.1）は止めない・設定を変えるときは先に相談する。コードを書くのは設計が固まってから。変わりやすい外部事実（OpenMausBot の版、Claude Code の版とフラグ）は確認日を文書に残す。返答は日本語で。
 ```
 
 ## 7. 場所と連絡先の一覧
@@ -193,7 +195,7 @@ pj-Hannigan の docs/HANDOFF.md を読んでから始めて。目的は、OpenMa
 | --- | --- |
 | Hannigan のリポジトリ | `/Volumes/SanD/Mac_m1_mini_archive/Git_full_no_xattrs/pj-Hannigan`（この Mac）、`https://github.com/FoundD-oka/pj_Hannigan` |
 | VPS | `ssh -i ~/.ssh/hannigan-vps root@162.43.38.222`。XServer の契約管理ページで DNS（found-d.com）と VPS を管理 |
-| WebChat | `https://hannigan.found-d.com/#token=<VPS の secrets/webchat-token>` |
-| この Mac のワーカー設定 | `~/.hannigan/worker.json`、鍵 `~/.hannigan/secrets/worker-key`、ログ `~/.hannigan/logs/worker.log`、launchd `~/Library/LaunchAgents/com.hannigan.worker.plist` |
-| ccr-ingress（同居する別プロジェクト） | VPS の `/root/ccr-ingress`、元は m1agent の Mac の `Control_VPS_byClaw` |
+| OpenMausBot | `https://hannigan.found-d.com`（端末ごとにペアリング）。VPS の `/home/hannigan/.openmausbot`、`/etc/systemd/system/openmausbot.service`、`/etc/caddy/Caddyfile` |
+| VPS のバックアップ（2026-10-27 の入れ替え前） | この Mac の `~/Backups/vps-162.43.38.222-20261027/`（Hannigan のデータと ccr 一式） |
+| この Mac の旧ワーカー | 停止済み。設定 `~/.hannigan/worker.json` は残っている。launchd の plist は `~/Backups/hannigan-worker-launchd-20261027/` に移した |
 | Claude Code のメモリ（この Mac） | `~/.claude/projects/-Volumes-SanD-Mac-m1-mini-archive-Git-full-no-xattrs-pj-Hannigan/memory/`（Phase 3・4 の要点） |
