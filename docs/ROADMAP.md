@@ -6,6 +6,8 @@
 
 ## 全体像
 
+2026-10-26: 利用者が OpenMausBot（OSS）を見つけ、UI はそちらが上と判断。OpenMausBot をベースに Hannigan の複数 Mac 接続を組み合わせる方向で、新しいスレッドで設計からやり直す。引き継ぎは [HANDOFF](HANDOFF.md)。今の Phase 4 構成（VPS）は止めずに運用を続ける。
+
 ```text
 Phase 0  検証               ── 完了（Channels × CU、同一 Mac 内）
 Phase 1  設計               ── 完了。2026-10-16 に Q1〜Q17 で改訂（VPS 秘書、案件 PM 階層、Discord、オフライン保留、書込直列化）
