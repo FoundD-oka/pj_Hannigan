@@ -85,9 +85,15 @@ bun relay/mac-agent.ts pair https://hannigan.found-d.com CODE --mac ID --cwd 作
 scripts/install-mac-agent.sh
 ```
 
-Terminal.app に Accessibility と Screen Recording を付けておく（CU を使う Mac だけ）。
+CU を使う Mac では、次の 2 つを先に済ませる。付けたあとに起動した tmux サーバーだけが権限を持つので、順番が大事。
 
-VPS の `~/.openmausbot/config.json` の `instances` に `customAcp` を足し、OpenMausBot を再起動する。`config.cli` は `/usr/bin/node /home/hannigan/hannigan-relay/acp-client.js --mac ID`。ボットはモデルの欄でこのエンジンを選ぶ。
+- Terminal.app に Accessibility と Screen Recording を付ける
+- 作業フォルダで `claude` を開き、`/mcp` で computer-use を有効にする。新しいフォルダでは無効になっている（2026-10-31、2.1.311 で確認）
+
+VPS の `~/.openmausbot/config.json` の `instances` に `customAcp` を足し、OpenMausBot を再起動する。`config.cli` は `/usr/bin/node /home/hannigan/hannigan-relay/acp-client.js --mac ID`。
+
+- `instances` を書くと標準のエンジン一覧は使われなくなる。`claude` などの標準の項目を必ず一緒に残す（2026-10-31 に Mac の項目だけ書いて、VPS の Claude を止めてしまった）
+- ボットのエンジンは、0.1.134 からチャット上部のモデル欄で切り替えられる。Mac のエンジンがエンジン名の見出しで並び、選ぶとボットの `modelSelection` に保存される。0.1.127 の npm 版には無く、API（`PATCH /api/bots/ID`）で設定していた
 
 ## 8. まだ移していないもの
 

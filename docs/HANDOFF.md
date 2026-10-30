@@ -20,15 +20,15 @@
 
 | 部品 | 場所 | 状態 |
 | --- | --- | --- |
-| OpenMausBot サーバー | XServer VPS 162.43.38.222（Ubuntu 24.04、Node 24.21.0）。ユーザー `hannigan` に `openmausbot@0.1.127` を npm で `~/.local` へ導入。データは `~/.openmausbot`。systemd `openmausbot.service` が `openmausbot serve --public-url https://hannigan.found-d.com --no-pair` を動かす（`127.0.0.1:8799`、webhook は `127.0.0.1:8800`） | 稼働中。`https://hannigan.found-d.com`。ログインは端末のペアリング。エンジンは標準の Claude ドライバー（Claude Code 2.1.310、claude.ai の Max でログイン済み）。2026-10-27 に画面からの 1 往復を確認 |
+| OpenMausBot サーバー | XServer VPS 162.43.38.222（Ubuntu 24.04、Node 24.21.0）。ユーザー `hannigan` に `openmausbot@0.1.134`（2026-10-31 に更新）を npm で `~/.local` へ導入。データは `~/.openmausbot`。systemd `openmausbot.service` が `openmausbot serve --public-url https://hannigan.found-d.com --no-pair` を動かす（`127.0.0.1:8799`、webhook は `127.0.0.1:8800`） | 稼働中。`https://hannigan.found-d.com`。ログインは端末のペアリング。エンジンは標準の Claude ドライバー（Claude Code 2.1.310、claude.ai の Max でログイン済み）。2026-10-27 に画面からの 1 往復を確認 |
 | TLS | VPS の Caddy 2.6.2（apt）。`/etc/caddy/Caddyfile` は OpenMausBot の 1 サイトだけ（`/hooks/*` → 8800、ほか → 8799、`flush_interval -1`。SSE がたまるので `encode` は付けない） | 証明書は前の Hannigan と同じものを引き継いだ |
 | 消したもの | Hannigan のハブ・秘書・コード・データ。ccr 一式（OpenClaw、Authelia、ccr-bots、ws-bridge、証明書更新、関連ユーザー 9 人、SSH の設定）。この Mac の Hannigan ワーカー（launchd から外した） | バックアップはこの Mac の `~/Backups/vps-162.43.38.222-20261027/`（2.26GB と追加分、SHA-256 付き）。秘密情報を含むのでリポジトリには入れない |
 | 中継サーバー | VPS。ユーザー `hannigan`、`/home/hannigan/hannigan-relay`、データ `~/.hannigan-relay`、systemd `hannigan-relay.service`（`127.0.0.1:8820`）。Caddy が `/hannigan-relay/*` を渡す。設計は [05](design/05-omb-mac-relay.md) | 稼働中。OpenMausBot のエンジン「レモンm4」（ID `mac-m4-mini`、`customAcp`）がこれを使う |
 | この Mac の常駐プログラム | ID `m4-mini`。`relay/mac-agent.ts`、設定 `~/.hannigan-mac`、作業フォルダ `~/hannigan-t11` | 接続中。launchd `com.hannigan.mac-agent` で自動起動。tmux サーバーは CU の権限を借りるため Terminal.app が起動する |
-| 会社の Mac のワーカー | ID `office`（表示名カボス） | 接続先のハブが消えた。旧ワーカーを止めて、常駐プログラムへ入れ替える作業が残っている |
+| 会社の Mac の常駐プログラム | ID `office`。OpenMausBot のエンジン「カボス」（ID `mac-office`）。作業フォルダ `~/hannigan-work` | 接続中（2026-10-31）。Team プランなので純正 CU は使わない |
 | リポジトリ | `https://github.com/FoundD-oka/pj_Hannigan`（main） | VPS にはチェックアウトを置いていない |
 
-入り方: この Mac から `ssh -i ~/.ssh/hannigan-vps root@162.43.38.222`。端末を足すときは `sudo -iu hannigan openmausbot pair --public-url https://hannigan.found-d.com`（コードは 1 回限り、5 分で失効）、一覧と取り消しは `openmausbot sessions`。版を上げるときは `systemctl stop openmausbot`、`sudo -iu hannigan npm install --global --prefix /home/hannigan/.local openmausbot@X.Y.Z`、`systemctl start openmausbot`。
+入り方: この Mac から `ssh -i ~/.ssh/hannigan-vps root@162.43.38.222`。端末を足すときは `sudo -iu hannigan openmausbot pair --public-url https://hannigan.found-d.com`（コードは 1 回限り、5 分で失効）、一覧と取り消しは `openmausbot sessions`。版を上げるときは `systemctl stop openmausbot`、`~/.openmausbot` を tar で `/home/hannigan/backups/` へ控える、`sudo -iu hannigan npm install --global --prefix /home/hannigan/.local openmausbot@X.Y.Z`、`systemctl start openmausbot`。戻すときは前の版を入れ直して tar を展開する。そのあと質問カードと、記憶の整理のフォルダ名 `omb-acp-memory-` が変わっていないかを確かめる。
 
 ### 2.2 どこまで確認できているか
 
@@ -146,7 +146,7 @@ Hannigan で学んだ、新設計でも効く知見
 - 第 1 段階の前に予定していた「今の Hannigan の WebChat で本物の CU のアプリ承認を通す確認」（Phase 4 の残り）は、先に第 1 段階を行ったので未実施。画面判定と選択キーの送信は、第 1 段階で OpenMausBot 経由で実機で動いた。残るのは、launchd で動くワーカーの tmux に CU の macOS 権限があるかの確認と合わせた実機確認（5.3 の最後の項目）
 - 進める順番
   1. Mac 1 台で、純正 CU が OpenMausBot の画面から一巡するか確かめる。合格は「画面から依頼 → 対話型の Claude が純正 CU で作業 → 承認・拒否・停止を画面から操作 → 結果が画面に戻る → 同じセッションへ追加指示」がすべて通ること。初回の OS 権限の付与を除き、端末へ戻らずに済むこと。cua-driver で代わりに動いた場合は合格にしない。**2026-10-27 に合格**（D の形の試作。OS 権限は Terminal.app の付与済みの権限を借りた）
-  2. VPS への配置と複数 Mac の仕組みを作り、2 台で承認・停止・再接続を確かめ直す。**2026-10-31 に 1 台目が通った**（[omb-mac-relay](verification/omb-mac-relay/README.md)）。通信とペアリングは作った。launchd での常駐も通った。残りは 2 台目の Mac、保留配送、書込リース
+  2. VPS への配置と複数 Mac の仕組みを作り、2 台で承認・停止・再接続を確かめ直す。**2026-10-31 に 1 台目が通った**（[omb-mac-relay](verification/omb-mac-relay/README.md)）。通信とペアリングは作った。launchd での常駐も通った。2 台目の接続も通った（2026-10-31、会社の Mac は Team プランなので文字の作業用）。残りは保留配送と書込リース
   3. 第 1 段階で見つかった要対応（5.3 の最後の項目）は 7 つのうち 6 つを解決した。macOS 権限の持ち主は Terminal.app の権限を借りる回避策で動かしている
 - 利用者の構想として、自作の Web アプリにボタンを置き、押すとサイドパネルが開いて OpenMausBot の Web 画面が出る形がある。今は埋め込みが禁止されている（4.2）ので、フォーク側で許可する埋め込み元を限定して開ける。ログインとペアリングの画面は禁止のまま残す。D は OpenMausBot を改造しないので禁止が残り、サイドパネル化には A か、応答ヘッダーを書き換える前段が要る。サイドパネル化と Discord 連携は、第 1 段階が通るまで着手しない（第 1 段階は通った）
 

@@ -158,6 +158,9 @@ function runLocal(m: Rpc, sessionId: string, text: string, cwd: string): void {
 
 // ---------------------------------------------------------------- ACP from OpenMausBot
 const localCwd = new Map<string, string>()
+// OpenMausBot's model picker lists an engine only once it advertises a model, so a bot can be switched to this Mac there.
+// Claude Code on the Mac picks its own model; choosing this one changes nothing.
+const MODELS = { currentModelId: 'claude-code', availableModels: [{ modelId: 'claude-code', name: 'Claude Code' }] }
 
 async function onRequest(m: Rpc): Promise<void> {
   const p = m.params ?? {}
@@ -180,10 +183,12 @@ async function onRequest(m: Rpc): Promise<void> {
         localSessions.set(sessionId, { child: null })
         localCwd.set(sessionId, p.cwd)
       }
-      return write({ jsonrpc: '2.0', id: m.id, result: { sessionId } })
+      return write({ jsonrpc: '2.0', id: m.id, result: { sessionId, models: MODELS } })
     }
     case 'session/load':
       // the Mac resumes the conversation (or starts it) at the next prompt
+      return write({ jsonrpc: '2.0', id: m.id, result: { models: MODELS } })
+    case 'session/set_model':
       return write({ jsonrpc: '2.0', id: m.id, result: {} })
     case 'session/prompt': {
       const sessionId = String(p.sessionId)
