@@ -1,0 +1,24 @@
+# /etc/caddy/Caddyfile: OpenMausBot on hannigan.found-d.com, and the relay Macs connect to.
+# The server listens on loopback only and its login is device pairing; Caddy adds HTTPS and forwards the real Host with
+# X-Forwarded-For / X-Forwarded-Proto (OpenMausBot docs/self-hosting.md, deploy/Caddyfile).
+# No `encode`: Caddy 2.6 held back SSE behind gzip in the Hannigan setup (docs/verification/phase4-vps 3).
+https://hannigan.found-d.com {
+	tls lo.conozco@gmail.com
+
+	# Macs connect out here over wss, each with its own key; pairing is one-time codes
+	handle /hannigan-relay/* {
+		reverse_proxy 127.0.0.1:8820
+	}
+
+	# webhook ingress has its own per-hook secrets and stays outside pairing
+	handle /hooks/* {
+		reverse_proxy 127.0.0.1:8800
+	}
+
+	handle {
+		reverse_proxy 127.0.0.1:8799 {
+			# SSE: stream events as they arrive
+			flush_interval -1
+		}
+	}
+}

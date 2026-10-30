@@ -6,9 +6,18 @@
     "strict": true,
     "noEmit": true,
     "skipLibCheck": true,
-    "types": ["bun"],
+    "types": [
+      "bun"
+    ],
     "allowImportingTsExtensions": true,
     "verbatimModuleSyntax": false
   },
-  "include": ["shared", "hub", "worker", "scripts", "test"]
+  "include": [
+    "shared",
+    "hub",
+    "worker",
+    "relay",
+    "scripts",
+    "test"
+  ]
 }

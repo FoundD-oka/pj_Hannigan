@@ -1,0 +1,17 @@
+# /etc/systemd/system/hannigan-relay.service: joins OpenMausBot and the Macs (docs/design/05-omb-mac-relay.md).
+# The files in /home/hannigan/hannigan-relay are bundles of relay/server.ts and relay/acp-client.ts (scripts/deploy-relay.sh).
+[Unit]
+Description=Hannigan relay (OpenMausBot <-> Mac agents)
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+User=hannigan
+WorkingDirectory=/home/hannigan/hannigan-relay
+Environment=HOME=/home/hannigan
+ExecStart=/usr/bin/node /home/hannigan/hannigan-relay/server.js
+Restart=always
+RestartSec=3
+
+[Install]
+WantedBy=multi-user.target
